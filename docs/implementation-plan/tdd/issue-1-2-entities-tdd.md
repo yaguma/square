@@ -11,7 +11,13 @@
 - `docs/design/entities-detailed-design.md`
 - `docs/design/integration-design.md`
 
-## 実装対象（全3つ）
+## 進捗管理チェックリスト
+
+### 実装対象（全3つ）
+
+- [ ] 1. Field（ゲームフィールド）
+- [ ] 2. FallingBlock（落下ブロック）
+- [ ] 3. Game（ゲーム）
 
 ### 実装順序（依存関係順）
 
@@ -22,6 +28,15 @@
 ---
 
 ## 1. Field（ゲームフィールド）のTDD実装
+
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] Field実装完了
 
 ### 🔴 Red: テストを先に書く（所要時間: 1時間）
 
@@ -235,6 +250,15 @@ describe('Field', () => {
 
 ## 2. FallingBlock（落下ブロック）のTDD実装
 
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] FallingBlock実装完了
+
 ### 🔴 Red: テストを先に書く（所要時間: 1時間）
 
 **ファイル**: `tests/domain/models/entities/FallingBlock.test.ts`
@@ -412,6 +436,16 @@ describe('FallingBlock', () => {
 ---
 
 ## 3. Game（ゲーム）のTDD実装
+
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く（基本機能のみ）
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す（基本機能のみ）
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] Game基本実装完了（landBlock()は基本実装のみ）
+- [ ] ※Phase 1-3でlandBlock()の完全実装を追加
 
 ### 重要な注意事項
 

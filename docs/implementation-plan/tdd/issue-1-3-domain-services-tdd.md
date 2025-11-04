@@ -11,7 +11,16 @@
 - `docs/design/domain-services-detailed-design.md`
 - `docs/design/integration-design.md`
 
-## 実装対象（全5つ）
+## 進捗管理チェックリスト
+
+### 実装対象（全5つ + Game.landBlock()完全実装）
+
+- [ ] 1. CollisionDetectionService（衝突判定サービス）
+- [ ] 2. BlockPatternGeneratorService（ブロックパターン生成サービス）
+- [ ] 3. BlockMatchingService（消去判定サービス）
+- [ ] 4. BlockFallService（自由落下サービス）
+- [ ] 5. BlockRemovalService（削除サービス）
+- [ ] 6. Game.landBlock()の完全実装
 
 ### 実装順序（依存関係順）
 
@@ -20,10 +29,20 @@
 3. **BlockMatchingService**（消去判定サービス）- 独立
 4. **BlockFallService**（自由落下サービス）- 独立
 5. **BlockRemovalService**（削除サービス）- BlockFallServiceに依存
+6. **Game.landBlock()完全実装** - すべてのサービスに依存
 
 ---
 
 ## 1. CollisionDetectionService（衝突判定サービス）のTDD実装
+
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] CollisionDetectionService実装完了
 
 ### 🔴 Red: テストを先に書く（所要時間: 45分）
 
@@ -234,6 +253,15 @@ export class CollisionDetectionService {
 
 ## 2. BlockPatternGeneratorService（ブロックパターン生成サービス）のTDD実装
 
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く（モックRandomGenerator使用）
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] BlockPatternGeneratorService実装完了
+
 ### 🔴 Red: テストを先に書く（所要時間: 45分）
 
 **ファイル**: `tests/domain/services/BlockPatternGeneratorService.test.ts`
@@ -335,6 +363,15 @@ describe('BlockPatternGeneratorService', () => {
 ---
 
 ## 3. BlockMatchingService（消去判定サービス）のTDD実装
+
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す（矩形検出アルゴリズム）
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] BlockMatchingService実装完了
 
 ### 🔴 Red: テストを先に書く（所要時間: 1時間）
 
@@ -488,6 +525,15 @@ describe('BlockMatchingService', () => {
 
 ## 4. BlockFallService（自由落下サービス）のTDD実装
 
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す（重力アルゴリズム）
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] BlockFallService実装完了
+
 ### 🔴 Red: テストを先に書く（所要時間: 45分）
 
 **ファイル**: `tests/domain/services/BlockFallService.test.ts`
@@ -600,6 +646,15 @@ describe('BlockFallService', () => {
 
 ## 5. BlockRemovalService（削除サービス）のTDD実装
 
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す（連鎖処理含む）
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] BlockRemovalService実装完了
+
 ### 🔴 Red: テストを先に書く（所要時間: 45分）
 
 **ファイル**: `tests/domain/services/BlockRemovalService.test.ts`
@@ -711,6 +766,18 @@ describe('BlockRemovalService', () => {
 ---
 
 ## Game.landBlock()の完全実装
+
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストケースを追加（消去判定、連鎖処理）
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: landBlock()を完全実装
+  - [ ] BlockMatchingServiceで消去判定
+  - [ ] BlockRemovalServiceで削除と連鎖処理
+  - [ ] スコア加算
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] Game.landBlock()完全実装完了
 
 Phase 1-3の完了後、`Game.landBlock()`メソッドを完全に実装します。
 

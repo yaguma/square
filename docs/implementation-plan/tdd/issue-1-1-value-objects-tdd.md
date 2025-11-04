@@ -11,7 +11,17 @@
 - `docs/design/value-objects-detailed-design.md`
 - `docs/design/integration-design.md`
 
-## 実装対象（全7つ）
+## 進捗管理チェックリスト
+
+### 実装対象（全7つ）
+
+- [ ] 1. Position（座標）
+- [ ] 2. Color（色）
+- [ ] 3. Block（ブロック）
+- [ ] 4. Score（スコア）
+- [ ] 5. Rectangle（矩形）
+- [ ] 6. GameState（ゲーム状態）
+- [ ] 7. BlockPattern（ブロックパターン）
 
 ### 実装順序（依存関係順）
 
@@ -26,6 +36,15 @@
 ---
 
 ## 1. Position（座標）のTDD実装
+
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] Position実装完了
 
 ### 🔴 Red: テストを先に書く（所要時間: 30分）
 
@@ -206,6 +225,15 @@ export class Position {
 
 ## 2. Color（色）のTDD実装
 
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング（必要に応じて）
+- [ ] Color実装完了
+
 ### 🔴 Red: テストを先に書く（所要時間: 20分）
 
 **ファイル**: `tests/domain/models/value-objects/Color.test.ts`
@@ -305,6 +333,15 @@ export class Color {
 ---
 
 ## 3. Block（ブロック）のTDD実装
+
+### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング（必要に応じて）
+- [ ] Block実装完了
 
 ### 🔴 Red: テストを先に書く（所要時間: 20分）
 
@@ -415,24 +452,70 @@ export class Block {
 
 ### 4. Score（スコア）
 
+#### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] Score実装完了
+
+**詳細**:
 - **テスト**: `tests/domain/models/value-objects/Score.test.ts`
 - **実装**: `src/domain/models/value-objects/Score.ts`
 - **所要時間**: 1時間
 
+---
+
 ### 5. Rectangle（矩形）
 
+#### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] Rectangle実装完了
+
+**詳細**:
 - **テスト**: `tests/domain/models/value-objects/Rectangle.test.ts`
 - **実装**: `src/domain/models/value-objects/Rectangle.ts`
 - **所要時間**: 1.5時間
 
+---
+
 ### 6. GameState（ゲーム状態）
 
+#### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング（必要に応じて）
+- [ ] GameState実装完了
+
+**詳細**:
 - **テスト**: `tests/domain/models/value-objects/GameState.test.ts`
 - **実装**: `src/domain/models/value-objects/GameState.ts`
 - **所要時間**: 30分
 
+---
+
 ### 7. BlockPattern（ブロックパターン）
 
+#### タスクチェックリスト
+
+- [ ] 🔴 Red: テストを先に書く
+- [ ] テストを実行して失敗を確認
+- [ ] 🟢 Green: 実装してテストを通す
+- [ ] テストを実行して成功を確認
+- [ ] 🔵 Refactor: リファクタリング
+- [ ] BlockPattern実装完了
+
+**詳細**:
 - **テスト**: `tests/domain/models/value-objects/BlockPattern.test.ts`
 - **実装**: `src/domain/models/value-objects/BlockPattern.ts`
 - **所要時間**: 2時間（最も複雑）
