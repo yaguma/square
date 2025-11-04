@@ -4,6 +4,9 @@ import { BlockPattern } from '@domain/models/value-objects/BlockPattern';
 import { GameState } from '@domain/models/value-objects/GameState';
 import { Score } from '@domain/models/value-objects/Score';
 import { BlockPatternGenerator } from '@domain/services/BlockPatternGenerator';
+import { BlockMatchingService } from '@domain/services/BlockMatchingService';
+import { BlockFallService } from '@domain/services/BlockFallService';
+import { BlockRemovalService } from '@domain/services/BlockRemovalService';
 
 /**
  * 通常落下速度（フレーム数）
@@ -270,37 +273,42 @@ export class Game {
    * ブロックを接地させる（内部メソッド）
    *
    * @remarks
-   * Phase 1-2 (Issue 1-2): 基本的なブロック固定のみ
-   * Phase 1-3 (Issue 1-3): 以下を追加実装
+   * Phase 1-3 (Issue 1-3): 完全実装
+   *   - ブロックをフィールドに固定
    *   - BlockMatchingServiceで消去判定
    *   - BlockRemovalServiceで削除と連鎖処理
    *   - スコア加算
+   *   - ゲームオーバー判定
    */
   private landBlock(): void {
     if (this._fallingBlock === null) {
       return;
     }
 
-    // フィールドにブロックを固定
+    // 1. フィールドにブロックを固定
     const blocks = this._fallingBlock.getBlocks();
     blocks.forEach(({ block, position }) => {
       this._field.placeBlock(position, block);
     });
 
-    // ブロックを削除
+    // 2. 落下ブロックを削除
     this._fallingBlock = null;
 
-    // ゲームオーバー判定
+    // 3. 消去処理（連鎖を含む）
+    const blockMatchingService = new BlockMatchingService();
+    const blockFallService = new BlockFallService();
+    const blockRemovalService = new BlockRemovalService(blockFallService, blockMatchingService);
+    const removedCount = blockRemovalService.processRemovalChain(this._field);
+
+    // 4. スコア加算
+    if (removedCount > 0) {
+      this._score = this._score.add(removedCount);
+    }
+
+    // 5. ゲームオーバー判定
     if (this.isGameOver()) {
       this._state = GameState.GameOver;
     }
-
-    // 【実装タイミング】
-    // Phase 1-3 (Issue 1-3): 以下を追加実装
-    //   - BlockMatchingServiceで消去判定
-    //   - BlockRemovalServiceで削除と連鎖処理
-    //   - BlockFallServiceで自由落下
-    //   - スコア加算
   }
 
   /**
