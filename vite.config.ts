@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
 import path from 'path';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   resolve: {
     alias: {
       '@domain': path.resolve(__dirname, './src/domain'),
@@ -18,5 +20,10 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true
+  },
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['tests/**/*.test.ts']
   }
 });
