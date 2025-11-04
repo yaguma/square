@@ -880,8 +880,9 @@ describe('CollisionDetectionService', () => {
 ┌─────────────────────────────────────────┐
 │  BlockPatternGeneratorService           │
 ├─────────────────────────────────────────┤
-│ (no instance variables)                 │
+│ - randomGenerator: RandomGenerator      │
 ├─────────────────────────────────────────┤
+│ + constructor(randomGenerator)          │
 │ + generate(): BlockPattern              │
 │ + generatePattern4(): BlockPattern      │
 │ + generatePattern3x1(): BlockPattern    │
@@ -906,37 +907,42 @@ describe('CollisionDetectionService', () => {
 
 **使用例**:
 ```typescript
-const generator = new BlockPatternGeneratorService();
+const randomGenerator = new RandomGenerator();
+const generator = new BlockPatternGeneratorService(randomGenerator);
 const pattern = generator.generate();
 ```
 
 **実装詳細**:
 ```typescript
-generate(): BlockPattern {
-  const patternType = this.getRandomPattern();
+export class BlockPatternGeneratorService {
+  constructor(private readonly randomGenerator: RandomGenerator) {}
 
-  switch (patternType) {
-    case 'pattern4':
-      return this.generatePattern4();
-    case 'pattern3x1':
-      return this.generatePattern3x1();
-    case 'pattern2x2':
-      return this.generatePattern2x2();
-    case 'pattern2x1x1':
-      return this.generatePattern2x1x1();
+  generate(): BlockPattern {
+    const patternType = this.getRandomPattern();
+
+    switch (patternType) {
+      case 'pattern4':
+        return this.generatePattern4();
+      case 'pattern3x1':
+        return this.generatePattern3x1();
+      case 'pattern2x2':
+        return this.generatePattern2x2();
+      case 'pattern2x1x1':
+        return this.generatePattern2x1x1();
+    }
   }
-}
 
-private getRandomPattern(): PatternType {
-  const patterns: PatternType[] = ['pattern4', 'pattern3x1', 'pattern2x2', 'pattern2x1x1'];
-  const index = Math.floor(Math.random() * patterns.length);
-  return patterns[index];
-}
+  private getRandomPattern(): PatternType {
+    const patterns: PatternType[] = ['pattern4', 'pattern3x1', 'pattern2x2', 'pattern2x1x1'];
+    const index = this.randomGenerator.nextInt(patterns.length);
+    return patterns[index];
+  }
 
-private getRandomColor(): Color {
-  const colors = [Color.BLUE, Color.RED, Color.YELLOW];
-  const index = Math.floor(Math.random() * colors.length);
-  return colors[index];
+  private getRandomColor(): Color {
+    const colors = [Color.BLUE, Color.RED, Color.YELLOW];
+    const index = this.randomGenerator.nextInt(colors.length);
+    return colors[index];
+  }
 }
 ```
 
@@ -1088,8 +1094,15 @@ generatePattern2x1x1(): BlockPattern {
 
 ```typescript
 describe('BlockPatternGeneratorService', () => {
+  let randomGenerator: RandomGenerator;
+  let generator: BlockPatternGeneratorService;
+
+  beforeEach(() => {
+    randomGenerator = new RandomGenerator();
+    generator = new BlockPatternGeneratorService(randomGenerator);
+  });
+
   test('パターンを生成できる', () => {
-    const generator = new BlockPatternGeneratorService();
     const pattern = generator.generate();
 
     expect(pattern).toBeInstanceOf(BlockPattern);
@@ -1098,7 +1111,6 @@ describe('BlockPatternGeneratorService', () => {
   });
 
   test('パターン4を生成できる', () => {
-    const generator = new BlockPatternGeneratorService();
     const pattern = generator.generatePattern4();
 
     expect(pattern.patternType).toBe('pattern4');
@@ -1115,7 +1127,6 @@ describe('BlockPatternGeneratorService', () => {
   });
 
   test('パターン3x1を生成できる', () => {
-    const generator = new BlockPatternGeneratorService();
     const pattern = generator.generatePattern3x1();
 
     expect(pattern.patternType).toBe('pattern3x1');

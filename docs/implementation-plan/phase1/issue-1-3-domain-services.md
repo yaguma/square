@@ -34,6 +34,14 @@
 
 **責務**: ランダムなブロックパターンの生成
 
+**依存性**:
+- `RandomGenerator` - コンストラクタで注入
+
+**コンストラクタ**:
+```typescript
+constructor(private readonly randomGenerator: RandomGenerator)
+```
+
 **メソッド**:
 - `generate(): BlockPattern`
 - `generatePattern4(): BlockPattern`
@@ -42,14 +50,16 @@
 - `generatePattern2x1x1(): BlockPattern`
 
 **プライベートメソッド**:
-- `getRandomColor(): Color`
-- `getRandomPattern(): PatternType`
+- `getRandomColor(): Color` - `randomGenerator.nextInt()`を使用
+- `getRandomPattern(): PatternType` - `randomGenerator.nextInt()`を使用
 
 **生成ルール**:
 - 各パターンの出現確率は均等（25%ずつ）
 - 色はBlue、Red、Yellowからランダムに選択
 - パターン3x1は4つの配置パターンからランダムに選択
 - パターン2x2は横並び、縦並び、斜め配置からランダムに選択
+
+**重要**: `Math.random()`を直接使用せず、必ず`RandomGenerator`を通して乱数を生成してください。これによりテスト時のモック化が容易になります。
 
 **実装優先度**: 高（Gameの`start()`メソッドで使用）
 

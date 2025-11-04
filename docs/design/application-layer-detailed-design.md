@@ -248,7 +248,7 @@ accelerateFall(gameId: string): void {
 }
 ```
 
-#### decelerateFall(gameId: string): void
+#### disableFastFall(gameId: string): void
 
 **説明**: 高速落下を無効化（下キー解放時）
 
@@ -257,7 +257,7 @@ accelerateFall(gameId: string): void {
 
 **実装例**:
 ```typescript
-decelerateFall(gameId: string): void {
+disableFastFall(gameId: string): void {
   const game = this.gameRepository.findById(gameId);
 
   if (!game) {
@@ -487,7 +487,7 @@ export class GameApplicationService {
     this.gameRepository.save(game);
   }
 
-  decelerateFall(gameId: string): void {
+  disableFastFall(gameId: string): void {
     const game = this.getGame(gameId);
     game.disableFastFall();
     this.gameRepository.save(game);
@@ -649,7 +649,7 @@ handleKeyDown(key: string, gameId: string): void {
 handleKeyUp(key: string, gameId: string): void {
   switch (key) {
     case 'ArrowDown':
-      this.gameApplicationService.decelerateFall(gameId);
+      this.gameApplicationService.disableFastFall(gameId);
       break;
   }
 }

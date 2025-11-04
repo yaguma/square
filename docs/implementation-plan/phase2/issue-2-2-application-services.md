@@ -44,7 +44,7 @@ export interface GameDto {
 - `rotateBlockClockwise(gameId: string): void`
 - `rotateBlockCounterClockwise(gameId: string): void`
 - `accelerateFall(gameId: string): void`
-- `decelerateFall(gameId: string): void`
+- `disableFastFall(gameId: string): void`
 - `dropInstantly(gameId: string): void`
 - `updateFrame(gameId: string): GameDto`
 - `getGameState(gameId: string): GameDto`

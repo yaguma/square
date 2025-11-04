@@ -987,8 +987,13 @@ export class Game {
     // ブロックを削除
     this._fallingBlock = null;
 
-    // 消去処理（ドメインサービス経由）
-    // 詳細は次のドキュメントで説明
+    // 【実装タイミング】
+    // Phase 1-2 (Issue 1-2): ここまでのスタブ実装（基本的なブロック固定のみ）
+    // Phase 1-3 (Issue 1-3): 以下を追加実装
+    //   - BlockMatchingServiceで消去判定
+    //   - BlockRemovalServiceで削除と連鎖処理
+    //   - スコア加算
+    //   - 次のブロック生成
 
     // ゲームオーバー判定
     if (this.isGameOver()) {
