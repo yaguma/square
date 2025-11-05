@@ -1,7 +1,49 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { InMemoryGameRepository } from '@infrastructure/repositories/InMemoryGameRepository';
 import { GameApplicationService } from '@application/services/GameApplicationService';
 import { GameState } from '@domain/models/value-objects/GameState';
+
+/**
+ * テスト定数
+ */
+const TEST_FRAMES = {
+  SHORT: 10,    // 短時間のフレーム更新
+  MEDIUM: 100,  // 約3.3秒相当のフレーム更新
+  MAX: 1000,    // ゲームオーバー確認の最大フレーム数
+} as const;
+
+/**
+ * テストヘルパー関数: 指定回数フレームを更新
+ */
+function updateFrames(
+  service: GameApplicationService,
+  gameId: string,
+  count: number
+): void {
+  for (let i = 0; i < count; i++) {
+    service.updateFrame(gameId);
+  }
+}
+
+/**
+ * テストヘルパー関数: ゲームオーバーまたは最大フレーム数まで更新
+ */
+function updateUntilGameOverOrMax(
+  service: GameApplicationService,
+  gameId: string,
+  maxFrames: number = TEST_FRAMES.MAX
+): { state: string; frameCount: number } {
+  let currentState = service.getGameState(gameId);
+  let frameCount = 0;
+
+  while (currentState.state === 'playing' && frameCount < maxFrames) {
+    service.updateFrame(gameId);
+    currentState = service.getGameState(gameId);
+    frameCount++;
+  }
+
+  return { state: currentState.state, frameCount };
+}
 
 /**
  * 統合テスト: ゲーム開始から終了までの完全なフロー
@@ -10,9 +52,15 @@ import { GameState } from '@domain/models/value-objects/GameState';
  * までの完全なゲームフローをテストする
  */
 describe('Game Integration - Complete Game Flow', () => {
+  let repository: InMemoryGameRepository;
+  let service: GameApplicationService;
+
+  beforeEach(() => {
+    repository = new InMemoryGameRepository();
+    service = new GameApplicationService(repository);
+  });
+
   test('新しいゲームが正しく開始される', () => {
-    const repository = new InMemoryGameRepository();
-    const service = new GameApplicationService(repository);
 
     // ゲームを開始
     const gameDto = service.startNewGame();
@@ -26,9 +74,6 @@ describe('Game Integration - Complete Game Flow', () => {
   });
 
   test('フレーム更新でゲーム状態が進行する', () => {
-    const repository = new InMemoryGameRepository();
-    const service = new GameApplicationService(repository);
-
     const initialDto = service.startNewGame();
     const gameId = initialDto.gameId;
 
@@ -42,19 +87,14 @@ describe('Game Integration - Complete Game Flow', () => {
   });
 
   test('複数フレームの更新でブロックが落下する', () => {
-    const repository = new InMemoryGameRepository();
-    const service = new GameApplicationService(repository);
-
     const initialDto = service.startNewGame();
     const gameId = initialDto.gameId;
 
     const initialBlockY = initialDto.fallingBlock?.position.y ?? 0;
 
     // 複数フレーム更新（ブロックが落下するまで）
-    let currentDto = initialDto;
-    for (let i = 0; i < 10; i++) {
-      currentDto = service.updateFrame(gameId);
-    }
+    updateFrames(service, gameId, TEST_FRAMES.SHORT);
+    const currentDto = service.getGameState(gameId);
 
     // ブロックが落下している、または新しいブロックが生成されている
     if (currentDto.fallingBlock) {
@@ -66,9 +106,6 @@ describe('Game Integration - Complete Game Flow', () => {
   });
 
   test('ゲーム状態を取得できる', () => {
-    const repository = new InMemoryGameRepository();
-    const service = new GameApplicationService(repository);
-
     const initialDto = service.startNewGame();
     const gameId = initialDto.gameId;
 
@@ -83,9 +120,6 @@ describe('Game Integration - Complete Game Flow', () => {
   });
 
   test('存在しないゲームIDでエラーが発生する', () => {
-    const repository = new InMemoryGameRepository();
-    const service = new GameApplicationService(repository);
-
     // 存在しないゲームIDでアクセス
     expect(() => {
       service.getGameState('non-existent-game-id');
@@ -93,16 +127,11 @@ describe('Game Integration - Complete Game Flow', () => {
   });
 
   test('長時間のゲームプレイでメモリリークが発生しない', () => {
-    const repository = new InMemoryGameRepository();
-    const service = new GameApplicationService(repository);
-
     const gameDto = service.startNewGame();
     const gameId = gameDto.gameId;
 
     // 100フレーム更新（約3.3秒相当）
-    for (let i = 0; i < 100; i++) {
-      service.updateFrame(gameId);
-    }
+    updateFrames(service, gameId, TEST_FRAMES.MEDIUM);
 
     // ゲームが正常に動作している
     const finalState = service.getGameState(gameId);
@@ -111,9 +140,6 @@ describe('Game Integration - Complete Game Flow', () => {
   });
 
   test('複数のゲームを同時に管理できる', () => {
-    const repository = new InMemoryGameRepository();
-    const service = new GameApplicationService(repository);
-
     // 複数のゲームを開始
     const game1 = service.startNewGame();
     const game2 = service.startNewGame();
@@ -138,27 +164,16 @@ describe('Game Integration - Complete Game Flow', () => {
   });
 
   test('ゲーム終了後もゲーム状態を取得できる', () => {
-    const repository = new InMemoryGameRepository();
-    const service = new GameApplicationService(repository);
-
     const gameDto = service.startNewGame();
     const gameId = gameDto.gameId;
 
     // ゲームを強制的にゲームオーバーにする
     // （実際のゲームでは最上段にブロックが到達した時）
     // ここでは多数のフレームを更新して、ゲームオーバーになる可能性を確認
-    let finalState = service.getGameState(gameId);
-    let frameCount = 0;
-    const maxFrames = 1000; // 無限ループ防止
-
-    // ゲームオーバーまたは最大フレーム数に到達するまで更新
-    while (finalState.state === 'playing' && frameCount < maxFrames) {
-      service.updateFrame(gameId);
-      finalState = service.getGameState(gameId);
-      frameCount++;
-    }
+    const result = updateUntilGameOverOrMax(service, gameId, TEST_FRAMES.MAX);
 
     // ゲーム状態を取得できる
+    const finalState = service.getGameState(gameId);
     expect(finalState.gameId).toBe(gameId);
     expect(['playing', 'paused', 'gameover']).toContain(finalState.state);
   });

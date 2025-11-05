@@ -1,6 +1,48 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { InMemoryGameRepository } from '@infrastructure/repositories/InMemoryGameRepository';
 import { GameApplicationService } from '@application/services/GameApplicationService';
+
+/**
+ * テスト定数
+ */
+const TEST_FRAMES = {
+  SHORT: 10,    // 短時間のフレーム更新
+  MEDIUM: 20,   // 中程度のフレーム更新
+  MAX: 1000,    // ゲームオーバー確認の最大フレーム数
+} as const;
+
+/**
+ * テストヘルパー関数: 指定回数フレームを更新
+ */
+function updateFrames(
+  service: GameApplicationService,
+  gameId: string,
+  count: number
+): void {
+  for (let i = 0; i < count; i++) {
+    service.updateFrame(gameId);
+  }
+}
+
+/**
+ * テストヘルパー関数: ゲームオーバーまたは最大フレーム数まで更新
+ */
+function updateUntilGameOverOrMax(
+  service: GameApplicationService,
+  gameId: string,
+  maxFrames: number = TEST_FRAMES.MAX
+): { state: string; frameCount: number } {
+  let currentState = service.getGameState(gameId);
+  let frameCount = 0;
+
+  while (currentState.state === 'playing' && frameCount < maxFrames) {
+    service.updateFrame(gameId);
+    currentState = service.getGameState(gameId);
+    frameCount++;
+  }
+
+  return { state: currentState.state, frameCount };
+}
 
 /**
  * 統合テスト: 一時停止とリスタート機能
@@ -8,10 +50,16 @@ import { GameApplicationService } from '@application/services/GameApplicationSer
  * ゲームの一時停止、再開、リスタート機能が正しく動作することを確認する
  */
 describe('Game Integration - Pause and Restart', () => {
+  let repository: InMemoryGameRepository;
+  let service: GameApplicationService;
+
+  beforeEach(() => {
+    repository = new InMemoryGameRepository();
+    service = new GameApplicationService(repository);
+  });
+
   describe('一時停止機能', () => {
     test('ゲームを一時停止できる', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
 
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
@@ -26,9 +74,6 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('一時停止中はフレーム更新してもゲーム状態が変化しない', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
@@ -41,9 +86,7 @@ describe('Game Integration - Pause and Restart', () => {
       service.pauseGame(gameId);
 
       // 一時停止中に複数フレーム更新
-      for (let i = 0; i < 10; i++) {
-        service.updateFrame(gameId);
-      }
+      updateFrames(service, gameId, TEST_FRAMES.SHORT);
 
       // ゲーム状態が変化していない
       const afterPauseState = service.getGameState(gameId);
@@ -58,9 +101,6 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('一時停止から再開できる', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
@@ -75,9 +115,6 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('再開後はフレーム更新でゲームが進行する', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
@@ -89,9 +126,7 @@ describe('Game Integration - Pause and Restart', () => {
       const blockYBefore = beforeUpdate.fallingBlock?.position.y ?? 0;
 
       // フレーム更新
-      for (let i = 0; i < 10; i++) {
-        service.updateFrame(gameId);
-      }
+      updateFrames(service, gameId, TEST_FRAMES.SHORT);
 
       // ゲームが進行している
       const afterUpdate = service.getGameState(gameId);
@@ -105,9 +140,6 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('複数回の一時停止と再開が正しく動作する', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
@@ -137,26 +169,15 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('ゲームオーバー後は一時停止できない', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
       // ゲームを多数フレーム更新してゲームオーバーを試みる
       // （実際にゲームオーバーになるかは運次第）
-      let currentState = service.getGameState(gameId);
-      let frameCount = 0;
-      const maxFrames = 1000;
-
-      while (currentState.state === 'playing' && frameCount < maxFrames) {
-        service.updateFrame(gameId);
-        currentState = service.getGameState(gameId);
-        frameCount++;
-      }
+      const result = updateUntilGameOverOrMax(service, gameId, TEST_FRAMES.MAX);
 
       // もしゲームオーバーになった場合、一時停止しても状態は変わらない
-      if (currentState.state === 'gameover') {
+      if (result.state === 'gameover') {
         service.pauseGame(gameId);
         const afterPauseState = service.getGameState(gameId);
         expect(afterPauseState.state).toBe('gameover');
@@ -166,16 +187,11 @@ describe('Game Integration - Pause and Restart', () => {
 
   describe('リスタート機能', () => {
     test('ゲームをリスタートできる', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
       // いくつかフレームを更新してゲームを進行させる
-      for (let i = 0; i < 10; i++) {
-        service.updateFrame(gameId);
-      }
+      updateFrames(service, gameId, TEST_FRAMES.SHORT);
 
       // リスタート
       service.restartGame(gameId);
@@ -188,16 +204,11 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('リスタート後は新しいゲームとして動作する', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
       // ゲームを進行させる
-      for (let i = 0; i < 20; i++) {
-        service.updateFrame(gameId);
-      }
+      updateFrames(service, gameId, TEST_FRAMES.MEDIUM);
 
       const beforeRestartState = service.getGameState(gameId);
       const scoreBefore = beforeRestartState.score;
@@ -206,9 +217,7 @@ describe('Game Integration - Pause and Restart', () => {
       service.restartGame(gameId);
 
       // リスタート後のゲームを進行させる
-      for (let i = 0; i < 10; i++) {
-        service.updateFrame(gameId);
-      }
+      updateFrames(service, gameId, TEST_FRAMES.SHORT);
 
       const afterRestartState = service.getGameState(gameId);
 
@@ -218,9 +227,6 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('一時停止中にリスタートできる', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
@@ -238,25 +244,14 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('ゲームオーバー後にリスタートできる', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
       // ゲームを多数フレーム更新してゲームオーバーを試みる
-      let currentState = service.getGameState(gameId);
-      let frameCount = 0;
-      const maxFrames = 1000;
-
-      while (currentState.state === 'playing' && frameCount < maxFrames) {
-        service.updateFrame(gameId);
-        currentState = service.getGameState(gameId);
-        frameCount++;
-      }
+      const result = updateUntilGameOverOrMax(service, gameId, TEST_FRAMES.MAX);
 
       // ゲームオーバーになった場合、リスタートできる
-      if (currentState.state === 'gameover') {
+      if (result.state === 'gameover') {
         service.restartGame(gameId);
 
         const restartedState = service.getGameState(gameId);
@@ -266,32 +261,23 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('複数回のリスタートが正しく動作する', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
       // 1回目のリスタート
-      for (let i = 0; i < 10; i++) {
-        service.updateFrame(gameId);
-      }
+      updateFrames(service, gameId, TEST_FRAMES.SHORT);
       service.restartGame(gameId);
       expect(service.getGameState(gameId).state).toBe('playing');
       expect(service.getGameState(gameId).score).toBe(0);
 
       // 2回目のリスタート
-      for (let i = 0; i < 10; i++) {
-        service.updateFrame(gameId);
-      }
+      updateFrames(service, gameId, TEST_FRAMES.SHORT);
       service.restartGame(gameId);
       expect(service.getGameState(gameId).state).toBe('playing');
       expect(service.getGameState(gameId).score).toBe(0);
 
       // 3回目のリスタート
-      for (let i = 0; i < 10; i++) {
-        service.updateFrame(gameId);
-      }
+      updateFrames(service, gameId, TEST_FRAMES.SHORT);
       service.restartGame(gameId);
       expect(service.getGameState(gameId).state).toBe('playing');
       expect(service.getGameState(gameId).score).toBe(0);
@@ -300,9 +286,6 @@ describe('Game Integration - Pause and Restart', () => {
 
   describe('一時停止とリスタートの組み合わせ', () => {
     test('一時停止 → リスタート → 一時停止のシーケンスが正しく動作する', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
@@ -324,9 +307,6 @@ describe('Game Integration - Pause and Restart', () => {
     });
 
     test('playing → pause → resume → restart → playing のフローが正しく動作する', () => {
-      const repository = new InMemoryGameRepository();
-      const service = new GameApplicationService(repository);
-
       const gameDto = service.startNewGame();
       const gameId = gameDto.gameId;
 
@@ -342,9 +322,7 @@ describe('Game Integration - Pause and Restart', () => {
       expect(service.getGameState(gameId).state).toBe('playing');
 
       // いくつかフレームを更新
-      for (let i = 0; i < 5; i++) {
-        service.updateFrame(gameId);
-      }
+      updateFrames(service, gameId, 5);
 
       // Restart
       service.restartGame(gameId);
