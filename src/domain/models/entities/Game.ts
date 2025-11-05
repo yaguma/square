@@ -33,6 +33,9 @@ export const FAST_FALL_SPEED = 5;
  * - 同時に落下できるブロックは1つのみ
  */
 export class Game {
+  // ドメインサービス（パフォーマンス最適化のため、インスタンス生成は1回のみ）
+  private readonly blockRemovalService: BlockRemovalService;
+
   /**
    * Gameインスタンスを生成するコンストラクタ
    *
@@ -56,7 +59,15 @@ export class Game {
     private _frameCount: number,
     private _fallSpeed: number,
     private _isFastFalling: boolean
-  ) {}
+  ) {
+    // ドメインサービスの初期化
+    const blockMatchingService = new BlockMatchingService();
+    const blockFallService = new BlockFallService();
+    this.blockRemovalService = new BlockRemovalService(
+      blockFallService,
+      blockMatchingService
+    );
+  }
 
   /**
    * Gameインスタンスを生成するファクトリメソッド
@@ -139,6 +150,13 @@ export class Game {
    */
   get frameCount(): number {
     return this._frameCount;
+  }
+
+  /**
+   * 高速落下中かどうかを取得
+   */
+  get isFastFalling(): boolean {
+    return this._isFastFalling;
   }
 
   /**
@@ -294,11 +312,8 @@ export class Game {
     // 2. 落下ブロックを削除
     this._fallingBlock = null;
 
-    // 3. 消去処理（連鎖を含む）
-    const blockMatchingService = new BlockMatchingService();
-    const blockFallService = new BlockFallService();
-    const blockRemovalService = new BlockRemovalService(blockFallService, blockMatchingService);
-    const removedCount = blockRemovalService.processRemovalChain(this._field);
+    // 3. 消去処理（連鎖を含む）- コンストラクタで初期化済みのサービスを使用
+    const removedCount = this.blockRemovalService.processRemovalChain(this._field);
 
     // 4. スコア加算
     if (removedCount > 0) {

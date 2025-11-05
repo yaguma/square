@@ -145,13 +145,18 @@ export class BlockPatternGeneratorService {
   /**
    * 指定された色以外のランダムな色を取得
    *
+   * @param excludeColors - 除外する色
+   * @returns 除外されていない色
+   * @throws Error すべての色が除外された場合
    * @private
    */
   private getRandomColorExcept(...excludeColors: Color[]): Color {
     const availableColors = BlockPatternGeneratorService.COLORS.filter(c => !excludeColors.includes(c));
     if (availableColors.length === 0) {
-      // 除外しすぎた場合は、ランダムな色を返す
-      return this.getRandomColor();
+      throw new Error(
+        'Cannot generate color: all available colors are excluded. ' +
+        `Excluded colors: ${excludeColors.map(c => c.type).join(', ')}`
+      );
     }
     const index = this.randomGenerator.nextInt(availableColors.length);
     return availableColors[index];
