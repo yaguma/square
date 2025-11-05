@@ -44,13 +44,15 @@ export class BlockRemovalService {
    * 連鎖も含めた削除処理を実行し、総削除マス数を返す
    *
    * @param field - フィールド
+   * @param maxChains - 最大連鎖回数（デフォルト: 100）
    * @returns 総削除マス数
+   * @throws Error 最大連鎖回数を超えた場合（無限ループ対策）
    */
-  processRemovalChain(field: Field): number {
+  processRemovalChain(field: Field, maxChains: number = 100): number {
     let totalRemoved = 0;
     let chainCount = 0;
 
-    while (true) {
+    while (chainCount < maxChains) {
       // 消去可能な矩形を検索
       const rectangles = this.blockMatchingService.findMatchingRectangles(field);
 
@@ -67,6 +69,13 @@ export class BlockRemovalService {
       while (this.blockFallService.applyGravity(field)) {
         // 落下が完了するまで繰り返し
       }
+    }
+
+    // 無限ループの検出
+    if (chainCount >= maxChains) {
+      throw new Error(
+        `Maximum chain limit (${maxChains}) exceeded. Possible infinite loop detected.`
+      );
     }
 
     return totalRemoved;
