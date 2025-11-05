@@ -47,7 +47,6 @@ export class Game {
    * @param _score - 現在のスコア
    * @param _frameCount - ゲーム開始からのフレーム数
    * @param _fallSpeed - 落下速度（フレーム数）
-   * @param _isFastFalling - 高速落下中かどうか
    */
   private constructor(
     private readonly _gameId: string,
@@ -57,8 +56,7 @@ export class Game {
     private _nextBlock: BlockPattern,
     private _score: Score,
     private _frameCount: number,
-    private _fallSpeed: number,
-    private _isFastFalling: boolean
+    private _fallSpeed: number
   ) {
     // ドメインサービスの初期化
     const blockMatchingService = new BlockMatchingService();
@@ -98,8 +96,7 @@ export class Game {
       BlockPatternGenerator.generate(), // 次のブロックを事前生成
       Score.zero(),
       0,
-      NORMAL_FALL_SPEED,
-      false
+      NORMAL_FALL_SPEED
     );
   }
 
@@ -150,13 +147,6 @@ export class Game {
    */
   get frameCount(): number {
     return this._frameCount;
-  }
-
-  /**
-   * 高速落下中かどうかを取得
-   */
-  get isFastFalling(): boolean {
-    return this._isFastFalling;
   }
 
   /**
@@ -218,7 +208,6 @@ export class Game {
     this._field.clear();
     this._score = Score.zero();
     this._frameCount = 0;
-    this._isFastFalling = false;
     this._fallSpeed = NORMAL_FALL_SPEED;
     this._nextBlock = BlockPatternGenerator.generate();
     this._state = GameState.Playing;
@@ -407,10 +396,9 @@ export class Game {
    * 高速落下を有効化
    *
    * @remarks
-   * 副作用: _isFastFallingをtrueに設定、_fallSpeedを5に変更
+   * 副作用: _fallSpeedを5に変更
    */
   enableFastFall(): void {
-    this._isFastFalling = true;
     this._fallSpeed = FAST_FALL_SPEED;
   }
 
@@ -418,10 +406,9 @@ export class Game {
    * 高速落下を無効化
    *
    * @remarks
-   * 副作用: _isFastFallingをfalseに設定、_fallSpeedを30に変更
+   * 副作用: _fallSpeedを30に変更
    */
   disableFastFall(): void {
-    this._isFastFalling = false;
     this._fallSpeed = NORMAL_FALL_SPEED;
   }
 
