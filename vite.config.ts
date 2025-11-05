@@ -4,6 +4,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  base: '/square/',
   resolve: {
     alias: {
       '@domain': path.resolve(__dirname, './src/domain'),
