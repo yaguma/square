@@ -20,10 +20,5 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true
-  },
-  test: {
-    globals: true,
-    environment: 'node',
-    include: ['tests/**/*.test.ts']
   }
 });
