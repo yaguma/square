@@ -5,7 +5,7 @@
  * 指定されたFPSでコールバック関数を定期的に実行するタイマー
  */
 export class FrameTimer {
-  private intervalId: number | null = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
   private _isRunning: boolean = false;
 
   /**
@@ -23,7 +23,7 @@ export class FrameTimer {
 
     this.intervalId = setInterval(() => {
       callback();
-    }, interval) as unknown as number;
+    }, interval);
 
     this._isRunning = true;
   }

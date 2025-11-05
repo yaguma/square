@@ -1,9 +1,10 @@
 import { GameApplicationService } from './GameApplicationService';
 
 /**
- * 入力受付のクールダウン期間（フレーム数）
+ * 入力受付のクールダウン期間（ミリ秒）
+ * 4フレーム @ 30fps = 約133ms
  */
-const INPUT_COOLDOWN = 4;
+const INPUT_COOLDOWN_MS = 133;
 
 /**
  * InputHandlerService - ユーザー入力の処理サービス
@@ -12,8 +13,8 @@ const INPUT_COOLDOWN = 4;
  * キーボード入力を受け取り、適切なゲームアクションを実行する
  */
 export class InputHandlerService {
-  private lastInputFrame: Map<string, number> = new Map();
-  private inputCooldown: number = INPUT_COOLDOWN;
+  private lastInputTime: Map<string, number> = new Map();
+  private inputCooldownMs: number = INPUT_COOLDOWN_MS;
 
   constructor(private gameApplicationService: GameApplicationService) {}
 
@@ -26,13 +27,15 @@ export class InputHandlerService {
   handleKeyDown(key: string, gameId: string): void {
     switch (key) {
       case 'ArrowLeft':
-        this.gameApplicationService.moveBlockLeft(gameId);
-        this.updateLastInputFrame('left', Date.now());
+        if (this.canAcceptInput('left')) {
+          this.gameApplicationService.moveBlockLeft(gameId);
+        }
         break;
 
       case 'ArrowRight':
-        this.gameApplicationService.moveBlockRight(gameId);
-        this.updateLastInputFrame('right', Date.now());
+        if (this.canAcceptInput('right')) {
+          this.gameApplicationService.moveBlockRight(gameId);
+        }
         break;
 
       case 'ArrowUp':
@@ -87,33 +90,33 @@ export class InputHandlerService {
    * 連続入力待ちを考慮して、入力を受け付けるかを判定
    *
    * @param key - キー
-   * @param frameCount - 現在のフレームカウント
+   * @param currentTime - 現在時刻（ミリ秒）。省略時はDate.now()を使用
    * @returns 入力を受け付ける場合true
    */
-  canAcceptInput(key: string, frameCount: number): boolean {
-    const lastFrame = this.lastInputFrame.get(key);
+  canAcceptInput(key: string, currentTime: number = Date.now()): boolean {
+    const lastTime = this.lastInputTime.get(key);
 
-    if (lastFrame === undefined) {
-      this.updateLastInputFrame(key, frameCount);
+    if (lastTime === undefined) {
+      this.updateLastInputTime(key, currentTime);
       return true;
     }
 
-    const canAccept = frameCount - lastFrame >= this.inputCooldown;
+    const canAccept = currentTime - lastTime >= this.inputCooldownMs;
 
     if (canAccept) {
-      this.updateLastInputFrame(key, frameCount);
+      this.updateLastInputTime(key, currentTime);
     }
 
     return canAccept;
   }
 
   /**
-   * 最終入力フレームを更新
+   * 最終入力時刻を更新
    *
    * @param key - キー
-   * @param frameCount - フレームカウント
+   * @param currentTime - 現在時刻（ミリ秒）
    */
-  private updateLastInputFrame(key: string, frameCount: number): void {
-    this.lastInputFrame.set(key, frameCount);
+  private updateLastInputTime(key: string, currentTime: number): void {
+    this.lastInputTime.set(key, currentTime);
   }
 }

@@ -143,31 +143,39 @@ describe('InputHandlerService', () => {
 
   describe('canAcceptInput', () => {
     test('初回の入力は常に受け付ける', () => {
-      expect(service.canAcceptInput('left', 0)).toBe(true);
+      expect(service.canAcceptInput('left', 1000)).toBe(true);
     });
 
     test('クールダウン期間内の入力は受け付けない', () => {
-      service.canAcceptInput('left', 0);
-      // updateLastInputFrameを呼ぶために実際に入力処理を行う必要がある
-      // ここでは直接canAcceptInputを連続で呼ぶ
-      expect(service.canAcceptInput('left', 1)).toBe(false);
-      expect(service.canAcceptInput('left', 2)).toBe(false);
-      expect(service.canAcceptInput('left', 3)).toBe(false);
+      const baseTime = 1000;
+      service.canAcceptInput('left', baseTime);
+
+      // 133ms未満は受け付けない
+      expect(service.canAcceptInput('left', baseTime + 50)).toBe(false);
+      expect(service.canAcceptInput('left', baseTime + 100)).toBe(false);
+      expect(service.canAcceptInput('left', baseTime + 132)).toBe(false);
     });
 
     test('クールダウン期間経過後は入力を受け付ける', () => {
-      service.canAcceptInput('left', 0);
+      const baseTime = 1000;
+      service.canAcceptInput('left', baseTime);
 
-      // 4フレーム以上経過
-      expect(service.canAcceptInput('left', 4)).toBe(true);
-      expect(service.canAcceptInput('left', 10)).toBe(true);
+      // 133ms以上経過
+      expect(service.canAcceptInput('left', baseTime + 133)).toBe(true);
+      expect(service.canAcceptInput('left', baseTime + 500)).toBe(true);
     });
 
     test('異なるキーは独立して管理される', () => {
-      service.canAcceptInput('left', 0);
+      const baseTime = 1000;
+      service.canAcceptInput('left', baseTime);
 
       // 別のキーは受け付ける
-      expect(service.canAcceptInput('right', 0)).toBe(true);
+      expect(service.canAcceptInput('right', baseTime)).toBe(true);
+    });
+
+    test('currentTimeを省略した場合はDate.now()を使用', () => {
+      // 現在時刻を使って入力を受け付ける
+      expect(service.canAcceptInput('left')).toBe(true);
     });
   });
 });
