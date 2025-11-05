@@ -14,6 +14,13 @@ export class GameController {
   private frameTimer: FrameTimer;
   private currentGameId: string | null = null;
 
+  // イベントハンドラーを保持（削除時に必要）
+  private keydownHandler?: (event: KeyboardEvent) => void;
+  private keyupHandler?: (event: KeyboardEvent) => void;
+  private pauseBtnHandler?: () => void;
+  private resetBtnHandler?: () => void;
+  private restartBtnHandler?: () => void;
+
   constructor(
     private gameApplicationService: GameApplicationService,
     private inputHandlerService: InputHandlerService,
@@ -48,27 +55,32 @@ export class GameController {
    */
   stop(): void {
     this.frameTimer.stop();
+    this.removeEventListeners();
   }
 
   /**
    * イベントリスナーを設定
    */
   private setupEventListeners(): void {
+    // 既存のイベントリスナーを削除（重複登録を防ぐ）
+    this.removeEventListeners();
+
     // キーボードイベント
-    window.addEventListener('keydown', (event) => {
+    this.keydownHandler = (event: KeyboardEvent) => {
       if (!this.currentGameId) return;
-
       this.inputHandlerService.handleKeyDown(event.key, this.currentGameId);
-    });
+    };
 
-    window.addEventListener('keyup', (event) => {
+    this.keyupHandler = (event: KeyboardEvent) => {
       if (!this.currentGameId) return;
-
       this.inputHandlerService.handleKeyUp(event.key, this.currentGameId);
-    });
+    };
+
+    window.addEventListener('keydown', this.keydownHandler);
+    window.addEventListener('keyup', this.keyupHandler);
 
     // ボタンイベント
-    document.getElementById('pause-btn')?.addEventListener('click', () => {
+    this.pauseBtnHandler = () => {
       if (!this.currentGameId) return;
 
       const gameState = this.gameApplicationService.getGameState(
@@ -79,19 +91,69 @@ export class GameController {
       } else if (gameState.state === 'paused') {
         this.gameApplicationService.resumeGame(this.currentGameId);
       }
-    });
+    };
 
-    document.getElementById('reset-btn')?.addEventListener('click', () => {
+    this.resetBtnHandler = () => {
       if (!this.currentGameId) return;
-
       this.gameApplicationService.restartGame(this.currentGameId);
-    });
+    };
 
-    document.getElementById('restart-btn')?.addEventListener('click', () => {
+    this.restartBtnHandler = () => {
       if (!this.currentGameId) return;
-
       this.gameApplicationService.restartGame(this.currentGameId);
-    });
+    };
+
+    const pauseBtn = document.getElementById('pause-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const restartBtn = document.getElementById('restart-btn');
+
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', this.pauseBtnHandler);
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', this.resetBtnHandler);
+    }
+
+    if (restartBtn) {
+      restartBtn.addEventListener('click', this.restartBtnHandler);
+    }
+  }
+
+  /**
+   * イベントリスナーを削除
+   */
+  private removeEventListeners(): void {
+    // キーボードイベントリスナーを削除
+    if (this.keydownHandler) {
+      window.removeEventListener('keydown', this.keydownHandler);
+      this.keydownHandler = undefined;
+    }
+
+    if (this.keyupHandler) {
+      window.removeEventListener('keyup', this.keyupHandler);
+      this.keyupHandler = undefined;
+    }
+
+    // ボタンイベントリスナーを削除
+    const pauseBtn = document.getElementById('pause-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const restartBtn = document.getElementById('restart-btn');
+
+    if (pauseBtn && this.pauseBtnHandler) {
+      pauseBtn.removeEventListener('click', this.pauseBtnHandler);
+      this.pauseBtnHandler = undefined;
+    }
+
+    if (resetBtn && this.resetBtnHandler) {
+      resetBtn.removeEventListener('click', this.resetBtnHandler);
+      this.resetBtnHandler = undefined;
+    }
+
+    if (restartBtn && this.restartBtnHandler) {
+      restartBtn.removeEventListener('click', this.restartBtnHandler);
+      this.restartBtnHandler = undefined;
+    }
   }
 
   /**
@@ -100,18 +162,39 @@ export class GameController {
   private gameLoop(): void {
     if (!this.currentGameId) return;
 
-    // ゲーム状態を更新
-    const gameDto = this.gameApplicationService.updateFrame(this.currentGameId);
+    try {
+      // ゲーム状態を更新
+      const gameDto = this.gameApplicationService.updateFrame(
+        this.currentGameId
+      );
 
-    // 描画
-    this.render(gameDto);
+      // 描画
+      this.render(gameDto);
+    } catch (error) {
+      console.error('Game loop error:', error);
+      this.stop();
+      this.showError('ゲームループでエラーが発生しました。ゲームを停止します。');
+    }
   }
 
   /**
    * 描画
    */
   private render(gameDto: GameDto): void {
-    this.canvasRenderer.render(gameDto);
-    this.uiRenderer.render(gameDto);
+    try {
+      this.canvasRenderer.render(gameDto);
+      this.uiRenderer.render(gameDto);
+    } catch (error) {
+      console.error('Render error:', error);
+      throw error; // gameLoop()でキャッチされる
+    }
+  }
+
+  /**
+   * エラーメッセージを表示
+   */
+  private showError(message: string): void {
+    // シンプルなエラー表示（将来的にはUIを改善する）
+    alert(message);
   }
 }
