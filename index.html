@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Square - 落ちものパズルゲーム</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Square</h1>
+    </header>
+
+    <main>
+      <div class="game-container">
+        <div class="game-info">
+          <div class="score-panel">
+            <h2>スコア</h2>
+            <div id="score" class="score-value">0</div>
+          </div>
+
+          <div class="next-panel">
+            <h2>ネクスト</h2>
+            <canvas id="next-canvas" width="80" height="80"></canvas>
+          </div>
+        </div>
+
+        <div class="game-field">
+          <canvas id="game-canvas" width="240" height="600"></canvas>
+          <div id="game-over" class="game-over hidden">
+            <h2>GAME OVER</h2>
+            <button id="restart-btn" class="btn btn-primary">リスタート</button>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="pause-btn" class="btn">一時停止</button>
+          <button id="reset-btn" class="btn">リセット</button>
+        </div>
+      </div>
+
+      <div class="instructions">
+        <h2>操作方法</h2>
+        <ul>
+          <li><kbd>←</kbd><kbd>→</kbd> : 移動</li>
+          <li><kbd>↑</kbd> / <kbd>Z</kbd> : 右回転</li>
+          <li><kbd>X</kbd> / <kbd>Ctrl</kbd> : 左回転</li>
+          <li><kbd>↓</kbd> : 高速落下</li>
+          <li><kbd>Space</kbd> : 即座落下</li>
+          <li><kbd>P</kbd> : 一時停止</li>
+          <li><kbd>R</kbd> : リスタート</li>
+        </ul>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
