@@ -46,7 +46,7 @@ export class InMemoryGameRepository implements GameRepository {
    * @returns 見つかった場合はGameインスタンス、見つからない場合はnull
    */
   findById(gameId: string): Game | null {
-    return this.games.get(gameId) || null;
+    return this.games.get(gameId) ?? null;
   }
 
   /**
