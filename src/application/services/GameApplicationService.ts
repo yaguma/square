@@ -6,6 +6,11 @@ import { FallingBlock } from '@domain/models/entities/FallingBlock';
 import { BlockPattern } from '@domain/models/value-objects/BlockPattern';
 import { Position } from '@domain/models/value-objects/Position';
 
+/**
+ * ブロックパターンのサイズ（2x2マス）
+ */
+const BLOCK_PATTERN_SIZE = 2;
+
 export class GameApplicationService {
   constructor(
     private gameRepository: GameRepository
@@ -132,7 +137,9 @@ export class GameApplicationService {
     return grid;
   }
 
-  private convertFallingBlockToDto(fallingBlock: FallingBlock) {
+  private convertFallingBlockToDto(
+    fallingBlock: FallingBlock
+  ): NonNullable<GameDto['fallingBlock']> {
     return {
       pattern: this.convertBlockPatternToDto(fallingBlock.pattern),
       position: {
@@ -147,9 +154,9 @@ export class GameApplicationService {
     const blocks = pattern.blocks;
     const result: string[][] = [];
 
-    for (let y = 0; y < 2; y++) {
+    for (let y = 0; y < BLOCK_PATTERN_SIZE; y++) {
       result[y] = [];
-      for (let x = 0; x < 2; x++) {
+      for (let x = 0; x < BLOCK_PATTERN_SIZE; x++) {
         result[y][x] = blocks[y][x] ? blocks[y][x].color.type : 'empty';
       }
     }

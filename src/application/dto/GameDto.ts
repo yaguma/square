@@ -1,6 +1,8 @@
+import { GameState } from '@domain/models/value-objects/GameState';
+
 export interface GameDto {
   gameId: string;
-  state: 'playing' | 'paused' | 'gameOver';
+  state: GameState;
   score: number;
   field: (string | null)[][];
   fallingBlock: {
