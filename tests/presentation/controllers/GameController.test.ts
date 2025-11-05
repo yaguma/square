@@ -179,7 +179,7 @@ describe('GameController', () => {
       expect(restartGameSpy).toHaveBeenCalled();
     });
 
-    test('キーボードイベントがInputHandlerServiceに渡される', () => {
+    test('keydownイベントがInputHandlerServiceに渡される', () => {
       controller.start();
 
       const handleKeyDownSpy = vi.spyOn(inputHandlerService, 'handleKeyDown');
@@ -189,6 +189,45 @@ describe('GameController', () => {
       window.dispatchEvent(event);
 
       expect(handleKeyDownSpy).toHaveBeenCalledWith('ArrowLeft', expect.any(String));
+    });
+
+    test('keyupイベントがInputHandlerServiceに渡される', () => {
+      controller.start();
+
+      const handleKeyUpSpy = vi.spyOn(inputHandlerService, 'handleKeyUp');
+
+      // キーアップイベントを発火
+      const event = new KeyboardEvent('keyup', { key: 'ArrowLeft' });
+      window.dispatchEvent(event);
+
+      expect(handleKeyUpSpy).toHaveBeenCalledWith('ArrowLeft', expect.any(String));
+    });
+
+    test('pause-btnを2回クリックで一時停止→再開される', () => {
+      controller.start();
+
+      const pauseGameSpy = vi.spyOn(gameApplicationService, 'pauseGame');
+      const resumeGameSpy = vi.spyOn(gameApplicationService, 'resumeGame');
+
+      // 1回目のクリック: pause
+      pauseBtn.click();
+      expect(pauseGameSpy).toHaveBeenCalled();
+
+      // ゲーム状態をpausedに変更（モック）
+      vi.spyOn(gameApplicationService, 'getGameState').mockReturnValue({
+        gameId: 'test-game',
+        state: 'paused',
+        score: 0,
+        level: 1,
+        linesCleared: 0,
+        field: [],
+        fallingBlock: null,
+        nextBlock: null,
+      });
+
+      // 2回目のクリック: resume
+      pauseBtn.click();
+      expect(resumeGameSpy).toHaveBeenCalled();
     });
   });
 
@@ -201,6 +240,70 @@ describe('GameController', () => {
 
       // start()の初回描画でエラーが発生することを確認
       expect(() => controller.start()).toThrow('Render error');
+    });
+
+    test('ゲームループ内でupdateFrameがエラーをスローした場合、ゲームを停止する', () => {
+      // タイマーをモック化
+      vi.useFakeTimers();
+
+      // コンソールエラーとアラートをモック
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+
+      // updateFrameがエラーをスローするようにモック（start()前に設定）
+      vi.spyOn(gameApplicationService, 'updateFrame').mockImplementation(() => {
+        throw new Error('Update frame error');
+      });
+
+      // ゲームを開始
+      controller.start();
+
+      // タイマーを進めてゲームループを実行（1000/30 = 33.33ms）
+      vi.advanceTimersByTime(34);
+
+      // エラーハンドリングが実行されることを確認
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Game loop error:', expect.any(Error));
+      expect(alertSpy).toHaveBeenCalledWith('ゲームループでエラーが発生しました。ゲームを停止します。');
+
+      // クリーンアップ
+      consoleErrorSpy.mockRestore();
+      alertSpy.mockRestore();
+      vi.useRealTimers();
+    });
+
+    test('ゲームループ内でレンダリングエラーが発生した場合、ゲームを停止する', () => {
+      // タイマーをモック化
+      vi.useFakeTimers();
+
+      // コンソールエラーとアラートをモック
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+
+      // 初回のrenderは成功させる
+      let renderCallCount = 0;
+      vi.spyOn(canvasRenderer, 'render').mockImplementation(() => {
+        renderCallCount++;
+        if (renderCallCount > 1) {
+          // 2回目以降（ゲームループ内）でエラーをスロー
+          throw new Error('Render error in loop');
+        }
+      });
+
+      // ゲームを開始（初回描画は成功）
+      controller.start();
+
+      // タイマーを進めてゲームループを実行（1000/30 = 33.33ms）
+      vi.advanceTimersByTime(34);
+
+      // エラーハンドリングが実行されることを確認
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Render error:', expect.any(Error));
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Game loop error:', expect.any(Error));
+      expect(alertSpy).toHaveBeenCalledWith('ゲームループでエラーが発生しました。ゲームを停止します。');
+
+      // クリーンアップ
+      consoleErrorSpy.mockRestore();
+      alertSpy.mockRestore();
+      vi.useRealTimers();
     });
   });
 
