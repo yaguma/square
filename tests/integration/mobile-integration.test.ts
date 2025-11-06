@@ -139,8 +139,8 @@ describe('Mobile Integration Tests', () => {
       const touchControls = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
       expect(touchControls).not.toBeNull();
 
-      // デスクトップではhide()が呼ばれる（containerのdisplayが'none'になる）
-      expect(touchControlsContainer.style.display).toBe('none');
+      // デスクトップではhide()が呼ばれる（touch-controlsのdisplayが'none'になる）
+      expect(touchControls.style.display).toBe('none');
     });
   });
 
@@ -167,13 +167,13 @@ describe('Mobile Integration Tests', () => {
 
       const touchControls = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
       expect(touchControls).not.toBeNull();
-      expect(touchControlsContainer.style.display).not.toBe('none');
+      expect(touchControls.style.display).not.toBe('none');
 
       // デスクトップサイズにリサイズ
       const desktopViewport = ViewportSize.create(1024, 768);
       gameController.handleResize(desktopViewport);
 
-      expect(touchControlsContainer.style.display).toBe('none');
+      expect(touchControls.style.display).toBe('none');
     });
   });
 

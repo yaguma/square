@@ -13,6 +13,7 @@ export class TouchControlRenderer {
   private container: HTMLElement;
   private buttons: Map<string, HTMLButtonElement>;
   private eventListeners: EventListenerRecord[];
+  private touchControlsElement: HTMLElement | null = null;
 
   /**
    * コンストラクタ
@@ -53,6 +54,7 @@ export class TouchControlRenderer {
 
       // タッチコントロールのルート要素を作成
       const touchControls = this.createTouchControlsElement();
+      this.touchControlsElement = touchControls; // 参照を保存
 
       // コンテナに追加
       this.container.appendChild(touchControls);
@@ -283,14 +285,18 @@ export class TouchControlRenderer {
    * タッチコントロールを表示
    */
   show(): void {
-    this.container.style.display = 'flex';
+    if (this.touchControlsElement) {
+      this.touchControlsElement.style.display = 'flex';
+    }
   }
 
   /**
    * タッチコントロールを非表示
    */
   hide(): void {
-    this.container.style.display = 'none';
+    if (this.touchControlsElement) {
+      this.touchControlsElement.style.display = 'none';
+    }
   }
 
   /**
@@ -309,6 +315,9 @@ export class TouchControlRenderer {
 
       // ボタンマップをクリア
       this.buttons.clear();
+
+      // 要素の参照をクリア
+      this.touchControlsElement = null;
 
       // DOM要素を削除
       this.container.innerHTML = '';
