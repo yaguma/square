@@ -2707,9 +2707,2074 @@ describe('TouchControlRenderer', () => {
 
 ---
 
-続きの詳細設計を作成するのだ。次は CanvasRenderer の変更、GameController の変更、型定義、CSS設計などを書いていくのだ！
+### 5.2 CanvasRenderer（変更）
 
-**使用コンテキスト**: 約95,000トークン
-**コンテキスト残量**: 約105,000トークン
+#### 5.2.1 ファイル情報
 
-ここまでで詳細設計の前半部分が完成したのだ。続きを作成してもよいか確認させてほしいのだ。
+**パス**: `src/presentation/renderers/CanvasRenderer.ts`
+
+#### 5.2.2 変更内容サマリー
+
+| 項目 | 変更前 | 変更後 |
+|------|-------|-------|
+| ブロックサイズ | 固定値（30px） | 動的に変更可能 |
+| Canvas初期化 | コンストラクタで固定サイズ設定 | コンストラクタで可変サイズ設定 |
+| サイズ更新 | 不可 | `updateBlockSize()` メソッドで更新可能 |
+
+#### 5.2.3 変更後のTypeScript定義
+
+```typescript
+import { GameDto } from '@application/dto/GameDto';
+
+const BACKGROUND_COLOR = '#2c3e50';
+const GRID_COLOR = '#34495e';
+
+/**
+ * CanvasRenderer
+ *
+ * ゲームフィールドとブロックの描画を担当するクラス
+ */
+export class CanvasRenderer {
+  private ctx: CanvasRenderingContext2D;
+
+  /**
+   * コンストラクタ
+   * @param canvas - 描画対象のHTMLCanvasElement
+   * @param blockSize - 1ブロックのサイズ（ピクセル）、デフォルト30px
+   * @throws {Error} canvasのcontextが取得できない場合
+   */
+  constructor(
+    private canvas: HTMLCanvasElement,
+    private blockSize: number = 30
+  ) {
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('Failed to get canvas context');
+    }
+
+    this.ctx = ctx;
+
+    // キャンバスサイズを設定（8x20マス）
+    this.updateCanvasSize();
+  }
+
+  /**
+   * ブロックサイズを更新
+   *
+   * @param newBlockSize - 新しいブロックサイズ（ピクセル）
+   *
+   * @remarks
+   * リサイズ時に呼び出される
+   * Canvas全体のサイズも自動的に更新される
+   */
+  updateBlockSize(newBlockSize: number): void {
+    if (newBlockSize <= 0) {
+      console.warn(`Invalid block size: ${newBlockSize}. Ignoring update.`);
+      return;
+    }
+
+    this.blockSize = newBlockSize;
+    this.updateCanvasSize();
+  }
+
+  /**
+   * Canvas全体のサイズを更新
+   *
+   * @remarks
+   * blockSizeに基づいてCanvas全体のサイズを再計算
+   */
+  private updateCanvasSize(): void {
+    this.canvas.width = this.blockSize * 8;
+    this.canvas.height = this.blockSize * 20;
+  }
+
+  /**
+   * 現在のブロックサイズを取得
+   *
+   * @returns 現在のブロックサイズ（ピクセル）
+   */
+  getBlockSize(): number {
+    return this.blockSize;
+  }
+
+  /**
+   * ゲーム状態を描画
+   * @param gameDto - ゲームの状態
+   */
+  render(gameDto: GameDto): void {
+    this.clear();
+    this.drawGrid();
+    this.drawField(gameDto.field);
+
+    if (gameDto.fallingBlock) {
+      this.drawFallingBlock(gameDto.fallingBlock);
+    }
+
+    // ゲームオーバー時のオーバーレイ
+    if (gameDto.state === 'gameOver') {
+      this.drawGameOverOverlay();
+    }
+
+    // 一時停止時のオーバーレイ
+    if (gameDto.state === 'paused') {
+      this.drawPausedOverlay();
+    }
+  }
+
+  /**
+   * キャンバスをクリア
+   */
+  private clear(): void {
+    this.ctx.fillStyle = BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  /**
+   * グリッド線を描画
+   */
+  private drawGrid(): void {
+    this.ctx.strokeStyle = GRID_COLOR;
+    this.ctx.lineWidth = 1;
+
+    // 縦線
+    for (let x = 0; x <= 8; x++) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(x * this.blockSize, 0);
+      this.ctx.lineTo(x * this.blockSize, this.canvas.height);
+      this.ctx.stroke();
+    }
+
+    // 横線
+    for (let y = 0; y <= 20; y++) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y * this.blockSize);
+      this.ctx.lineTo(this.canvas.width, y * this.blockSize);
+      this.ctx.stroke();
+    }
+  }
+
+  /**
+   * フィールドのブロックを描画
+   * @param field - フィールドの状態
+   */
+  private drawField(field: (string | null)[][]): void {
+    for (let y = 0; y < field.length; y++) {
+      for (let x = 0; x < field[y].length; x++) {
+        const colorType = field[y][x];
+
+        if (colorType) {
+          this.drawBlock(x, y, this.getColorHex(colorType));
+        }
+      }
+    }
+  }
+
+  /**
+   * 落下ブロックを描画
+   * @param fallingBlock - 落下中のブロック情報
+   */
+  private drawFallingBlock(fallingBlock: {
+    pattern: string[][];
+    position: { x: number; y: number };
+    rotation: number;
+  }): void {
+    const { pattern, position } = fallingBlock;
+
+    for (let y = 0; y < pattern.length; y++) {
+      for (let x = 0; x < pattern[y].length; x++) {
+        const colorType = pattern[y][x];
+
+        if (colorType && colorType !== 'empty') {
+          const absX = position.x + x;
+          const absY = position.y + y;
+
+          this.drawBlock(absX, absY, this.getColorHex(colorType));
+        }
+      }
+    }
+  }
+
+  /**
+   * 単一のブロックを描画
+   * @param x - X座標（マス目）
+   * @param y - Y座標（マス目）
+   * @param color - ブロックの色
+   */
+  private drawBlock(x: number, y: number, color: string): void {
+    const pixelX = x * this.blockSize;
+    const pixelY = y * this.blockSize;
+
+    // ブロックの塗りつぶし
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(
+      pixelX + 1,
+      pixelY + 1,
+      this.blockSize - 2,
+      this.blockSize - 2
+    );
+
+    // ブロックの枠線（立体感）
+    this.ctx.strokeStyle = '#000';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(
+      pixelX + 1,
+      pixelY + 1,
+      this.blockSize - 2,
+      this.blockSize - 2
+    );
+
+    // ハイライト
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    this.ctx.fillRect(
+      pixelX + 2,
+      pixelY + 2,
+      this.blockSize - 4,
+      (this.blockSize - 4) / 3
+    );
+  }
+
+  /**
+   * ゲームオーバーのオーバーレイを描画
+   */
+  private drawGameOverOverlay(): void {
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = 'bold 32px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(
+      'GAME OVER',
+      this.canvas.width / 2,
+      this.canvas.height / 2
+    );
+  }
+
+  /**
+   * 一時停止のオーバーレイを描画
+   */
+  private drawPausedOverlay(): void {
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = 'bold 24px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(
+      'PAUSED',
+      this.canvas.width / 2,
+      this.canvas.height / 2
+    );
+  }
+
+  /**
+   * 色文字列をHEXコードに変換
+   * @param colorType - 色のタイプ（'blue', 'red', 'yellow'）
+   * @returns HEXカラーコード
+   */
+  private getColorHex(colorType: string): string {
+    const colors: { [key: string]: string } = {
+      blue: '#3498db',
+      red: '#e74c3c',
+      yellow: '#f1c40f'
+    };
+
+    return colors[colorType] || '#000';
+  }
+}
+```
+
+#### 5.2.4 変更箇所の詳細
+
+**変更1: ブロックサイズをprivateフィールドに変更**
+
+```typescript
+// 変更前
+private readonly BLOCK_SIZE = 30; // 固定値
+
+// 変更後
+private blockSize: number = 30; // 可変
+```
+
+**変更2: Canvas初期化処理を分離**
+
+```typescript
+// 変更前
+constructor(
+  private canvas: HTMLCanvasElement,
+  private blockSize: number = 30
+) {
+  // ...
+  this.canvas.width = blockSize * 8;
+  this.canvas.height = blockSize * 20;
+}
+
+// 変更後
+constructor(
+  private canvas: HTMLCanvasElement,
+  private blockSize: number = 30
+) {
+  // ...
+  this.updateCanvasSize();
+}
+
+private updateCanvasSize(): void {
+  this.canvas.width = this.blockSize * 8;
+  this.canvas.height = this.blockSize * 20;
+}
+```
+
+**追加3: updateBlockSize() メソッド**
+
+```typescript
+// 新規追加
+updateBlockSize(newBlockSize: number): void {
+  if (newBlockSize <= 0) {
+    console.warn(`Invalid block size: ${newBlockSize}. Ignoring update.`);
+    return;
+  }
+
+  this.blockSize = newBlockSize;
+  this.updateCanvasSize();
+}
+```
+
+**追加4: getBlockSize() メソッド**
+
+```typescript
+// 新規追加
+getBlockSize(): number {
+  return this.blockSize;
+}
+```
+
+**変更5: 全ての描画メソッドでBLOCK_SIZE → this.blockSizeに変更**
+
+```typescript
+// 変更前
+const pixelX = x * this.BLOCK_SIZE;
+
+// 変更後
+const pixelX = x * this.blockSize;
+```
+
+#### 5.2.5 後方互換性
+
+既存の呼び出しコードは変更不要です：
+
+```typescript
+// 既存コード（そのまま動作）
+const renderer = new CanvasRenderer(canvas);
+
+// 新機能（ブロックサイズ指定）
+const renderer = new CanvasRenderer(canvas, 25);
+
+// 動的サイズ変更
+renderer.updateBlockSize(30);
+```
+
+#### 5.2.6 エラーハンドリング
+
+| エラー発生箇所 | 処理 | 影響 |
+|--------------|------|------|
+| constructor() - context取得失敗 | throw | インスタンス化失敗 |
+| updateBlockSize() - 無効な値 | warn & return | サイズ更新をスキップ、現在のサイズを維持 |
+
+#### 5.2.7 テストケースの追加
+
+**ファイル**: `tests/presentation/renderers/CanvasRenderer.test.ts`（新規作成）
+
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { CanvasRenderer } from '@presentation/renderers/CanvasRenderer';
+import { GameDto } from '@application/dto/GameDto';
+
+describe('CanvasRenderer', () => {
+  let canvas: HTMLCanvasElement;
+  let renderer: CanvasRenderer;
+
+  beforeEach(() => {
+    // Canvas要素を作成
+    canvas = document.createElement('canvas');
+  });
+
+  describe('コンストラクタ', () => {
+    it('デフォルトのブロックサイズ（30px）で初期化できる', () => {
+      renderer = new CanvasRenderer(canvas);
+
+      expect(canvas.width).toBe(240); // 30 * 8
+      expect(canvas.height).toBe(600); // 30 * 20
+      expect(renderer.getBlockSize()).toBe(30);
+    });
+
+    it('カスタムブロックサイズで初期化できる', () => {
+      renderer = new CanvasRenderer(canvas, 20);
+
+      expect(canvas.width).toBe(160); // 20 * 8
+      expect(canvas.height).toBe(400); // 20 * 20
+      expect(renderer.getBlockSize()).toBe(20);
+    });
+
+    it('contextが取得できない場合エラーをスロー', () => {
+      const mockCanvas = {
+        getContext: vi.fn(() => null)
+      } as any;
+
+      expect(() => {
+        new CanvasRenderer(mockCanvas);
+      }).toThrow('Failed to get canvas context');
+    });
+  });
+
+  describe('updateBlockSize()', () => {
+    beforeEach(() => {
+      renderer = new CanvasRenderer(canvas, 30);
+    });
+
+    it('ブロックサイズを正しく更新', () => {
+      renderer.updateBlockSize(25);
+
+      expect(renderer.getBlockSize()).toBe(25);
+      expect(canvas.width).toBe(200); // 25 * 8
+      expect(canvas.height).toBe(500); // 25 * 20
+    });
+
+    it('ブロックサイズを小さく変更', () => {
+      renderer.updateBlockSize(15);
+
+      expect(renderer.getBlockSize()).toBe(15);
+      expect(canvas.width).toBe(120); // 15 * 8
+      expect(canvas.height).toBe(300); // 15 * 20
+    });
+
+    it('ブロックサイズを大きく変更', () => {
+      renderer.updateBlockSize(40);
+
+      expect(renderer.getBlockSize()).toBe(40);
+      expect(canvas.width).toBe(320); // 40 * 8
+      expect(canvas.height).toBe(800); // 40 * 20
+    });
+
+    it('無効な値（0）では更新しない', () => {
+      const consoleSpy = vi.spyOn(console, 'warn');
+
+      renderer.updateBlockSize(0);
+
+      expect(renderer.getBlockSize()).toBe(30); // 変更されない
+      expect(consoleSpy).toHaveBeenCalledWith('Invalid block size: 0. Ignoring update.');
+    });
+
+    it('無効な値（負数）では更新しない', () => {
+      const consoleSpy = vi.spyOn(console, 'warn');
+
+      renderer.updateBlockSize(-10);
+
+      expect(renderer.getBlockSize()).toBe(30); // 変更されない
+      expect(consoleSpy).toHaveBeenCalledWith('Invalid block size: -10. Ignoring update.');
+    });
+
+    it('複数回の更新が正常に動作', () => {
+      renderer.updateBlockSize(20);
+      expect(renderer.getBlockSize()).toBe(20);
+
+      renderer.updateBlockSize(35);
+      expect(renderer.getBlockSize()).toBe(35);
+
+      renderer.updateBlockSize(25);
+      expect(renderer.getBlockSize()).toBe(25);
+    });
+  });
+
+  describe('render()', () => {
+    beforeEach(() => {
+      renderer = new CanvasRenderer(canvas, 30);
+    });
+
+    it('GameDtoを正常に描画', () => {
+      const gameDto: GameDto = createMockGameDto();
+
+      expect(() => {
+        renderer.render(gameDto);
+      }).not.toThrow();
+    });
+
+    it('異なるブロックサイズで描画が正常に動作', () => {
+      renderer.updateBlockSize(20);
+      const gameDto: GameDto = createMockGameDto();
+
+      expect(() => {
+        renderer.render(gameDto);
+      }).not.toThrow();
+    });
+
+    it('ゲームオーバー状態を正しく描画', () => {
+      const gameDto: GameDto = {
+        ...createMockGameDto(),
+        state: 'gameOver'
+      };
+
+      expect(() => {
+        renderer.render(gameDto);
+      }).not.toThrow();
+    });
+
+    it('一時停止状態を正しく描画', () => {
+      const gameDto: GameDto = {
+        ...createMockGameDto(),
+        state: 'paused'
+      };
+
+      expect(() => {
+        renderer.render(gameDto);
+      }).not.toThrow();
+    });
+  });
+
+  describe('統合テスト', () => {
+    it('リサイズ後も描画が正常に動作', () => {
+      renderer = new CanvasRenderer(canvas, 30);
+      const gameDto: GameDto = createMockGameDto();
+
+      // 初回描画
+      renderer.render(gameDto);
+
+      // リサイズ
+      renderer.updateBlockSize(20);
+
+      // 再描画
+      expect(() => {
+        renderer.render(gameDto);
+      }).not.toThrow();
+
+      expect(canvas.width).toBe(160);
+      expect(canvas.height).toBe(400);
+    });
+  });
+});
+
+function createMockGameDto(): GameDto {
+  return {
+    gameId: 'test-game',
+    state: 'playing',
+    field: Array(20).fill(null).map(() => Array(8).fill(null)),
+    fallingBlock: {
+      pattern: [['blue', 'blue'], ['blue', 'blue']],
+      position: { x: 3, y: 0 },
+      rotation: 0
+    },
+    score: 0,
+    level: 1,
+    linesCleared: 0
+  };
+}
+```
+
+---
+
+### 5.3 GameController（変更）
+
+#### 5.3.1 ファイル情報
+
+**パス**: `src/presentation/controllers/GameController.ts`
+
+#### 5.3.2 変更内容サマリー
+
+| 項目 | 変更前 | 変更後 |
+|------|-------|-------|
+| レスポンシブ対応 | なし | リサイズイベント処理を追加 |
+| タッチコントロール | なし | TouchControlRendererを統合 |
+| レイアウト計算 | なし | LayoutCalculationServiceを使用 |
+| 初期化処理 | start()のみ | setupResponsiveLayout()を追加 |
+| 依存サービス | 4個 | 6個（+2: LayoutCalculationService, TouchControlRenderer） |
+
+#### 5.3.3 追加する依存関係
+
+```typescript
+import { GameApplicationService } from '@application/services/GameApplicationService';
+import { InputHandlerService } from '@application/services/InputHandlerService';
+import { LayoutCalculationService } from '@application/services/LayoutCalculationService';
+import { CanvasRenderer } from '@presentation/renderers/CanvasRenderer';
+import { UIRenderer } from '@presentation/renderers/UIRenderer';
+import { TouchControlRenderer } from '@presentation/renderers/TouchControlRenderer';
+import { FrameTimer } from '@infrastructure/timer/FrameTimer';
+import { GameDto } from '@application/dto/GameDto';
+import { ViewportSize } from '@application/value-objects/ViewportSize';
+```
+
+#### 5.3.4 変更後のTypeScript定義
+
+```typescript
+/**
+ * GameController
+ *
+ * ゲーム全体を制御するコントローラー
+ */
+export class GameController {
+  private frameTimer: FrameTimer;
+  private currentGameId: string | null = null;
+  private touchControlRenderer: TouchControlRenderer | null = null;
+  private currentViewportSize: ViewportSize | null = null;
+  private resizeTimeoutId: number | null = null;
+
+  // イベントハンドラーを保持（削除時に必要）
+  private keydownHandler?: (event: KeyboardEvent) => void;
+  private keyupHandler?: (event: KeyboardEvent) => void;
+  private pauseBtnHandler?: () => void;
+  private resetBtnHandler?: () => void;
+  private restartBtnHandler?: () => void;
+  private resizeHandler?: () => void;
+
+  constructor(
+    private gameApplicationService: GameApplicationService,
+    private inputHandlerService: InputHandlerService,
+    private layoutCalculationService: LayoutCalculationService,
+    private canvasRenderer: CanvasRenderer,
+    private uiRenderer: UIRenderer,
+    private canvas: HTMLCanvasElement
+  ) {
+    this.frameTimer = new FrameTimer();
+  }
+
+  /**
+   * ゲームを開始
+   */
+  start(): void {
+    try {
+      // レスポンシブレイアウトを初期化
+      this.setupResponsiveLayout();
+
+      // 新しいゲームを開始
+      const gameDto = this.gameApplicationService.startNewGame();
+      this.currentGameId = gameDto.gameId;
+
+      // タッチコントロールを初期化
+      this.initializeTouchControls();
+
+      // イベントリスナーを設定
+      this.setupEventListeners();
+
+      // 初回描画
+      this.render(gameDto);
+
+      // ゲームループを開始
+      this.frameTimer.start(() => {
+        this.gameLoop();
+      }, 30);
+    } catch (error) {
+      console.error('Failed to start game:', error);
+      this.showError('ゲームの開始に失敗しました。');
+    }
+  }
+
+  /**
+   * ゲームを停止
+   */
+  stop(): void {
+    this.frameTimer.stop();
+    this.removeEventListeners();
+
+    // タッチコントロールを破棄
+    if (this.touchControlRenderer) {
+      this.touchControlRenderer.destroy();
+      this.touchControlRenderer = null;
+    }
+  }
+
+  /**
+   * レスポンシブレイアウトの初期設定
+   *
+   * @remarks
+   * ブラウザの画面サイズに応じてCanvasサイズとブロックサイズを調整
+   */
+  private setupResponsiveLayout(): void {
+    try {
+      // 1. 初期ビューポートサイズを取得
+      const viewport = ViewportSize.fromWindow();
+      this.currentViewportSize = viewport;
+
+      // 2. レイアウト計算（Application層のサービスを使用）
+      const blockSize = this.layoutCalculationService.calculateBlockSize(viewport);
+      const canvasSize = this.layoutCalculationService.calculateCanvasSize(blockSize);
+
+      // 3. CanvasRendererを更新
+      this.canvasRenderer.updateBlockSize(blockSize.size);
+      this.canvas.width = canvasSize.width;
+      this.canvas.height = canvasSize.height;
+    } catch (error) {
+      console.error('Failed to setup responsive layout:', error);
+      // フォールバック: デフォルトサイズを使用
+      this.useDefaultLayout();
+    }
+  }
+
+  /**
+   * デフォルトレイアウトを使用（フォールバック）
+   */
+  private useDefaultLayout(): void {
+    console.warn('Using default layout due to error in responsive setup');
+    this.canvasRenderer.updateBlockSize(30);
+    this.canvas.width = 240;
+    this.canvas.height = 600;
+  }
+
+  /**
+   * タッチコントロールを初期化
+   */
+  private initializeTouchControls(): void {
+    try {
+      if (!this.currentGameId) {
+        throw new Error('Cannot initialize touch controls: gameId is null');
+      }
+
+      // タッチコントロール用のコンテナ要素を取得
+      const container = document.getElementById('touch-controls-container');
+      if (!container) {
+        console.warn('Touch controls container not found. Skipping touch controls initialization.');
+        return;
+      }
+
+      // TouchControlRendererインスタンスを作成
+      this.touchControlRenderer = new TouchControlRenderer(
+        container,
+        this.inputHandlerService,
+        this.currentGameId
+      );
+
+      // UIを描画
+      this.touchControlRenderer.render();
+
+      // 初期表示/非表示を設定
+      if (this.currentViewportSize) {
+        const shouldShow = this.layoutCalculationService.shouldShowTouchControls(
+          this.currentViewportSize
+        );
+        shouldShow ? this.touchControlRenderer.show() : this.touchControlRenderer.hide();
+      }
+    } catch (error) {
+      console.error('Failed to initialize touch controls:', error);
+      // タッチコントロールが失敗してもゲームは継続
+      this.touchControlRenderer = null;
+    }
+  }
+
+  /**
+   * イベントリスナーを設定
+   */
+  private setupEventListeners(): void {
+    // 既存のイベントリスナーを削除（重複登録を防ぐ）
+    this.removeEventListeners();
+
+    // キーボードイベント
+    this.keydownHandler = (event: KeyboardEvent) => {
+      if (!this.currentGameId) return;
+      this.inputHandlerService.handleKeyDown(event.key, this.currentGameId);
+    };
+
+    this.keyupHandler = (event: KeyboardEvent) => {
+      if (!this.currentGameId) return;
+      this.inputHandlerService.handleKeyUp(event.key, this.currentGameId);
+    };
+
+    window.addEventListener('keydown', this.keydownHandler);
+    window.addEventListener('keyup', this.keyupHandler);
+
+    // リサイズイベント
+    this.resizeHandler = () => {
+      this.handleResizeWithDebounce();
+    };
+    window.addEventListener('resize', this.resizeHandler);
+
+    // ボタンイベント
+    this.pauseBtnHandler = () => {
+      if (!this.currentGameId) return;
+
+      const gameState = this.gameApplicationService.getGameState(
+        this.currentGameId
+      );
+      if (gameState.state === 'playing') {
+        this.gameApplicationService.pauseGame(this.currentGameId);
+      } else if (gameState.state === 'paused') {
+        this.gameApplicationService.resumeGame(this.currentGameId);
+      }
+    };
+
+    this.resetBtnHandler = () => {
+      if (!this.currentGameId) return;
+      this.gameApplicationService.restartGame(this.currentGameId);
+    };
+
+    this.restartBtnHandler = () => {
+      if (!this.currentGameId) return;
+      this.gameApplicationService.restartGame(this.currentGameId);
+    };
+
+    const pauseBtn = document.getElementById('pause-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const restartBtn = document.getElementById('restart-btn');
+
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', this.pauseBtnHandler);
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', this.resetBtnHandler);
+    }
+
+    if (restartBtn) {
+      restartBtn.addEventListener('click', this.restartBtnHandler);
+    }
+  }
+
+  /**
+   * イベントリスナーを削除
+   */
+  private removeEventListeners(): void {
+    // キーボードイベントリスナーを削除
+    if (this.keydownHandler) {
+      window.removeEventListener('keydown', this.keydownHandler);
+      this.keydownHandler = undefined;
+    }
+
+    if (this.keyupHandler) {
+      window.removeEventListener('keyup', this.keyupHandler);
+      this.keyupHandler = undefined;
+    }
+
+    // リサイズイベントリスナーを削除
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
+      this.resizeHandler = undefined;
+    }
+
+    // デバウンスタイマーをクリア
+    if (this.resizeTimeoutId !== null) {
+      clearTimeout(this.resizeTimeoutId);
+      this.resizeTimeoutId = null;
+    }
+
+    // ボタンイベントリスナーを削除
+    const pauseBtn = document.getElementById('pause-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const restartBtn = document.getElementById('restart-btn');
+
+    if (pauseBtn && this.pauseBtnHandler) {
+      pauseBtn.removeEventListener('click', this.pauseBtnHandler);
+      this.pauseBtnHandler = undefined;
+    }
+
+    if (resetBtn && this.resetBtnHandler) {
+      resetBtn.removeEventListener('click', this.resetBtnHandler);
+      this.resetBtnHandler = undefined;
+    }
+
+    if (restartBtn && this.restartBtnHandler) {
+      restartBtn.removeEventListener('click', this.restartBtnHandler);
+      this.restartBtnHandler = undefined;
+    }
+  }
+
+  /**
+   * リサイズ処理（デバウンス付き）
+   *
+   * @remarks
+   * 連続したリサイズイベントをデバウンスして、250ms後に実行
+   */
+  private handleResizeWithDebounce(): void {
+    // 既存のタイマーをクリア
+    if (this.resizeTimeoutId !== null) {
+      clearTimeout(this.resizeTimeoutId);
+    }
+
+    // 新しいタイマーを設定
+    this.resizeTimeoutId = window.setTimeout(() => {
+      this.handleResize();
+      this.resizeTimeoutId = null;
+    }, 250);
+  }
+
+  /**
+   * ウィンドウリサイズ時の処理
+   *
+   * @remarks
+   * ビューポートサイズの変化に応じてCanvasサイズとタッチコントロールを更新
+   */
+  private handleResize(): void {
+    try {
+      // 1. 新しいビューポートサイズを取得
+      const newViewport = ViewportSize.fromWindow();
+
+      // 2. サイズが変わらなければスキップ
+      if (this.currentViewportSize?.equals(newViewport)) {
+        return;
+      }
+
+      this.currentViewportSize = newViewport;
+
+      // 3. 再計算と更新
+      const blockSize = this.layoutCalculationService.calculateBlockSize(newViewport);
+      const canvasSize = this.layoutCalculationService.calculateCanvasSize(blockSize);
+
+      this.canvasRenderer.updateBlockSize(blockSize.size);
+      this.canvas.width = canvasSize.width;
+      this.canvas.height = canvasSize.height;
+
+      // 4. タッチコントロールの表示切り替え
+      const shouldShowTouch = this.layoutCalculationService.shouldShowTouchControls(newViewport);
+      if (this.touchControlRenderer) {
+        shouldShowTouch ? this.touchControlRenderer.show() : this.touchControlRenderer.hide();
+      }
+
+      // 5. 再描画
+      if (this.currentGameId) {
+        const gameDto = this.gameApplicationService.getGameState(this.currentGameId);
+        this.render(gameDto);
+      }
+    } catch (error) {
+      console.error('Failed to handle resize:', error);
+      // エラーでもゲームは継続
+    }
+  }
+
+  /**
+   * ゲームループ
+   */
+  private gameLoop(): void {
+    if (!this.currentGameId) return;
+
+    try {
+      // ゲーム状態を更新
+      const gameDto = this.gameApplicationService.updateFrame(
+        this.currentGameId
+      );
+
+      // 描画
+      this.render(gameDto);
+    } catch (error) {
+      console.error('Game loop error:', error);
+      this.stop();
+      this.showError('ゲームループでエラーが発生しました。ゲームを停止します。');
+    }
+  }
+
+  /**
+   * 描画
+   */
+  private render(gameDto: GameDto): void {
+    try {
+      this.canvasRenderer.render(gameDto);
+      this.uiRenderer.render(gameDto);
+    } catch (error) {
+      console.error('Render error:', error);
+      throw error; // gameLoop()でキャッチされる
+    }
+  }
+
+  /**
+   * エラーメッセージを表示
+   */
+  private showError(message: string): void {
+    // シンプルなエラー表示（将来的にはUIを改善する）
+    alert(message);
+  }
+}
+```
+
+#### 5.3.5 変更箇所の詳細
+
+**追加1: 新しいフィールド**
+
+```typescript
+// 追加
+private touchControlRenderer: TouchControlRenderer | null = null;
+private currentViewportSize: ViewportSize | null = null;
+private resizeTimeoutId: number | null = null;
+private resizeHandler?: () => void;
+private canvas: HTMLCanvasElement; // コンストラクタ引数として追加
+```
+
+**追加2: LayoutCalculationServiceの依存注入**
+
+```typescript
+// 変更前
+constructor(
+  private gameApplicationService: GameApplicationService,
+  private inputHandlerService: InputHandlerService,
+  private canvasRenderer: CanvasRenderer,
+  private uiRenderer: UIRenderer
+) {
+  // ...
+}
+
+// 変更後
+constructor(
+  private gameApplicationService: GameApplicationService,
+  private inputHandlerService: InputHandlerService,
+  private layoutCalculationService: LayoutCalculationService,
+  private canvasRenderer: CanvasRenderer,
+  private uiRenderer: UIRenderer,
+  private canvas: HTMLCanvasElement
+) {
+  // ...
+}
+```
+
+**変更3: start() メソッドの拡張**
+
+```typescript
+// 変更前
+start(): void {
+  const gameDto = this.gameApplicationService.startNewGame();
+  this.currentGameId = gameDto.gameId;
+  this.setupEventListeners();
+  this.render(gameDto);
+  this.frameTimer.start(() => {
+    this.gameLoop();
+  }, 30);
+}
+
+// 変更後
+start(): void {
+  try {
+    // レスポンシブレイアウトを初期化（追加）
+    this.setupResponsiveLayout();
+
+    const gameDto = this.gameApplicationService.startNewGame();
+    this.currentGameId = gameDto.gameId;
+
+    // タッチコントロールを初期化（追加）
+    this.initializeTouchControls();
+
+    this.setupEventListeners();
+    this.render(gameDto);
+    this.frameTimer.start(() => {
+      this.gameLoop();
+    }, 30);
+  } catch (error) {
+    console.error('Failed to start game:', error);
+    this.showError('ゲームの開始に失敗しました。');
+  }
+}
+```
+
+**追加4: 新しいメソッド群**
+
+- `setupResponsiveLayout()`: レスポンシブレイアウトの初期化
+- `useDefaultLayout()`: フォールバック処理
+- `initializeTouchControls()`: タッチコントロールの初期化
+- `handleResizeWithDebounce()`: デバウンス付きリサイズ処理
+- `handleResize()`: リサイズ処理本体
+
+**変更5: setupEventListeners() にリサイズイベントを追加**
+
+```typescript
+// 追加
+this.resizeHandler = () => {
+  this.handleResizeWithDebounce();
+};
+window.addEventListener('resize', this.resizeHandler);
+```
+
+**変更6: removeEventListeners() にリサイズイベント削除を追加**
+
+```typescript
+// 追加
+if (this.resizeHandler) {
+  window.removeEventListener('resize', this.resizeHandler);
+  this.resizeHandler = undefined;
+}
+
+if (this.resizeTimeoutId !== null) {
+  clearTimeout(this.resizeTimeoutId);
+  this.resizeTimeoutId = null;
+}
+```
+
+**変更7: stop() メソッドにタッチコントロール破棄を追加**
+
+```typescript
+// 追加
+if (this.touchControlRenderer) {
+  this.touchControlRenderer.destroy();
+  this.touchControlRenderer = null;
+}
+```
+
+#### 5.3.6 処理フロー
+
+```
+[ゲーム開始]
+  start()
+  ↓
+[レスポンシブレイアウト初期化]
+  setupResponsiveLayout()
+  - ViewportSize取得
+  - BlockSize計算
+  - CanvasSize計算
+  - CanvasRenderer更新
+  ↓
+[タッチコントロール初期化]
+  initializeTouchControls()
+  - TouchControlRenderer生成
+  - DOM要素生成
+  - 表示/非表示判定
+  ↓
+[イベントリスナー登録]
+  setupEventListeners()
+  - キーボード
+  - リサイズ（デバウンス付き）
+  - ボタン
+  ↓
+[ゲームループ開始]
+  ↓
+[リサイズイベント発生]
+  handleResizeWithDebounce()
+  ↓ (250ms後)
+  handleResize()
+  - 新ViewportSize取得
+  - サイズ変化チェック
+  - レイアウト再計算
+  - Canvas更新
+  - タッチコントロール表示切替
+  - 再描画
+```
+
+#### 5.3.7 エラーハンドリング戦略
+
+| エラー発生箇所 | 処理 | 影響 |
+|--------------|------|------|
+| start() | catch & showError | ゲーム開始失敗 |
+| setupResponsiveLayout() | catch & useDefaultLayout | デフォルトサイズで継続 |
+| initializeTouchControls() | catch & log | タッチコントロールなしで継続 |
+| handleResize() | catch & log | リサイズ処理スキップ、現在のサイズを維持 |
+| gameLoop() | catch & stop | ゲーム停止 |
+
+#### 5.3.8 テストケースの追加
+
+**ファイル**: `tests/presentation/controllers/GameController.test.ts`（新規作成）
+
+```typescript
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { GameController } from '@presentation/controllers/GameController';
+import { GameApplicationService } from '@application/services/GameApplicationService';
+import { InputHandlerService } from '@application/services/InputHandlerService';
+import { LayoutCalculationService } from '@application/services/LayoutCalculationService';
+import { CanvasRenderer } from '@presentation/renderers/CanvasRenderer';
+import { UIRenderer } from '@presentation/renderers/UIRenderer';
+
+describe('GameController', () => {
+  let controller: GameController;
+  let mockGameService: GameApplicationService;
+  let mockInputHandler: InputHandlerService;
+  let mockLayoutService: LayoutCalculationService;
+  let mockCanvasRenderer: CanvasRenderer;
+  let mockUIRenderer: UIRenderer;
+  let canvas: HTMLCanvasElement;
+  let touchControlsContainer: HTMLElement;
+
+  beforeEach(() => {
+    // DOM要素を作成
+    canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+
+    touchControlsContainer = document.createElement('div');
+    touchControlsContainer.id = 'touch-controls-container';
+    document.body.appendChild(touchControlsContainer);
+
+    // モックサービスを作成
+    mockGameService = {
+      startNewGame: vi.fn(() => ({
+        gameId: 'test-game',
+        state: 'playing',
+        field: Array(20).fill(null).map(() => Array(8).fill(null)),
+        fallingBlock: null,
+        score: 0,
+        level: 1,
+        linesCleared: 0
+      })),
+      updateFrame: vi.fn(() => ({})),
+      getGameState: vi.fn(() => ({ state: 'playing' })),
+      pauseGame: vi.fn(),
+      resumeGame: vi.fn(),
+      restartGame: vi.fn(),
+    } as any;
+
+    mockInputHandler = {} as any;
+
+    mockLayoutService = {
+      calculateBlockSize: vi.fn(() => ({ size: 30 })),
+      calculateCanvasSize: vi.fn(() => ({ width: 240, height: 600 })),
+      shouldShowTouchControls: vi.fn(() => false),
+    } as any;
+
+    mockCanvasRenderer = {
+      updateBlockSize: vi.fn(),
+      render: vi.fn(),
+    } as any;
+
+    mockUIRenderer = {
+      render: vi.fn(),
+    } as any;
+
+    controller = new GameController(
+      mockGameService,
+      mockInputHandler,
+      mockLayoutService,
+      mockCanvasRenderer,
+      mockUIRenderer,
+      canvas
+    );
+  });
+
+  afterEach(() => {
+    controller.stop();
+    document.body.removeChild(canvas);
+    document.body.removeChild(touchControlsContainer);
+  });
+
+  describe('start()', () => {
+    it('ゲームを正常に開始できる', () => {
+      controller.start();
+
+      expect(mockGameService.startNewGame).toHaveBeenCalled();
+      expect(mockLayoutService.calculateBlockSize).toHaveBeenCalled();
+      expect(mockCanvasRenderer.updateBlockSize).toHaveBeenCalled();
+    });
+
+    it('レスポンシブレイアウトを初期化', () => {
+      controller.start();
+
+      expect(mockLayoutService.calculateBlockSize).toHaveBeenCalled();
+      expect(mockLayoutService.calculateCanvasSize).toHaveBeenCalled();
+      expect(mockCanvasRenderer.updateBlockSize).toHaveBeenCalledWith(30);
+    });
+
+    it('タッチコントロールを初期化', () => {
+      controller.start();
+
+      const touchControls = touchControlsContainer.querySelector('.touch-controls');
+      expect(touchControls).toBeTruthy();
+    });
+
+    it('エラー時にデフォルトレイアウトを使用', () => {
+      mockLayoutService.calculateBlockSize = vi.fn(() => {
+        throw new Error('Test error');
+      });
+
+      controller.start();
+
+      // デフォルトレイアウトが適用される
+      expect(mockCanvasRenderer.updateBlockSize).toHaveBeenCalledWith(30);
+    });
+  });
+
+  describe('handleResize()', () => {
+    beforeEach(() => {
+      controller.start();
+    });
+
+    it('リサイズイベントでレイアウトを再計算', () => {
+      // リサイズイベントをトリガー
+      window.dispatchEvent(new Event('resize'));
+
+      // デバウンス待ち
+      vi.advanceTimersByTime(250);
+
+      expect(mockLayoutService.calculateBlockSize).toHaveBeenCalled();
+    });
+
+    it('サイズが変わらない場合は処理をスキップ', () => {
+      const initialCallCount = mockLayoutService.calculateBlockSize.mock.calls.length;
+
+      // 同じサイズでリサイズイベント
+      window.dispatchEvent(new Event('resize'));
+      vi.advanceTimersByTime(250);
+
+      // サイズが同じなので再計算されない
+      expect(mockLayoutService.calculateBlockSize.mock.calls.length).toBe(initialCallCount);
+    });
+
+    it('デバウンス処理が正常に動作', () => {
+      // 連続してリサイズイベントを発火
+      window.dispatchEvent(new Event('resize'));
+      window.dispatchEvent(new Event('resize'));
+      window.dispatchEvent(new Event('resize'));
+
+      // 250ms未満では処理されない
+      vi.advanceTimersByTime(200);
+      const callCountBefore = mockLayoutService.calculateBlockSize.mock.calls.length;
+
+      // 250ms経過で1回だけ処理
+      vi.advanceTimersByTime(50);
+      expect(mockLayoutService.calculateBlockSize.mock.calls.length).toBeGreaterThan(callCountBefore);
+    });
+
+    it('エラーが発生してもゲームは継続', () => {
+      mockLayoutService.calculateBlockSize = vi.fn(() => {
+        throw new Error('Resize error');
+      });
+
+      expect(() => {
+        window.dispatchEvent(new Event('resize'));
+        vi.advanceTimersByTime(250);
+      }).not.toThrow();
+    });
+  });
+
+  describe('stop()', () => {
+    beforeEach(() => {
+      controller.start();
+    });
+
+    it('ゲームを正常に停止できる', () => {
+      expect(() => {
+        controller.stop();
+      }).not.toThrow();
+    });
+
+    it('タッチコントロールを破棄', () => {
+      controller.stop();
+
+      const touchControls = touchControlsContainer.querySelector('.touch-controls');
+      expect(touchControls).toBeFalsy();
+    });
+
+    it('リサイズイベントリスナーを削除', () => {
+      controller.stop();
+
+      // リサイズイベントを発火しても処理されない
+      const callCountBefore = mockLayoutService.calculateBlockSize.mock.calls.length;
+      window.dispatchEvent(new Event('resize'));
+      vi.advanceTimersByTime(250);
+
+      expect(mockLayoutService.calculateBlockSize.mock.calls.length).toBe(callCountBefore);
+    });
+  });
+
+  describe('統合テスト', () => {
+    it('モバイルサイズでタッチコントロールが表示される', () => {
+      mockLayoutService.shouldShowTouchControls = vi.fn(() => true);
+
+      controller.start();
+
+      const container = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
+      expect(container).toBeTruthy();
+      expect(container.style.display).not.toBe('none');
+    });
+
+    it('デスクトップサイズでタッチコントロールが非表示', () => {
+      mockLayoutService.shouldShowTouchControls = vi.fn(() => false);
+
+      controller.start();
+
+      const container = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
+      expect(container).toBeTruthy();
+      expect(container.style.display).toBe('none');
+    });
+
+    it('リサイズでタッチコントロールの表示が切り替わる', () => {
+      mockLayoutService.shouldShowTouchControls = vi.fn(() => false);
+      controller.start();
+
+      // 非表示確認
+      let container = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
+      expect(container.style.display).toBe('none');
+
+      // モバイルサイズに変更
+      mockLayoutService.shouldShowTouchControls = vi.fn(() => true);
+      window.dispatchEvent(new Event('resize'));
+      vi.advanceTimersByTime(250);
+
+      // 表示確認
+      container = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
+      expect(container.style.display).toBe('flex');
+    });
+  });
+});
+```
+
+---
+
+## 6. TypeScript型定義とインターフェース
+
+### 6.1 EventListenerRecord
+
+#### 6.1.1 ファイル情報
+
+**パス**: `src/presentation/types/EventListenerRecord.ts`
+
+#### 6.1.2 責務
+
+イベントリスナーの登録情報を記録する型定義。メモリリーク対策として、登録したイベントリスナーを確実に解除するために使用します。
+
+#### 6.1.3 TypeScript定義
+
+```typescript
+/**
+ * EventListenerRecord - イベントリスナーの登録記録
+ *
+ * @remarks
+ * メモリリーク対策としてイベントリスナーの登録情報を保持
+ * destroy時に確実にリスナーを解除するために使用
+ */
+export interface EventListenerRecord {
+  /** イベントリスナーが登録されている要素 */
+  element: HTMLElement;
+
+  /** イベント名（'click', 'touchstart'等） */
+  event: string;
+
+  /** イベントハンドラ関数 */
+  handler: EventListener;
+}
+```
+
+#### 6.1.4 使用例
+
+```typescript
+import { EventListenerRecord } from '@presentation/types/EventListenerRecord';
+
+class SomeRenderer {
+  private eventListeners: EventListenerRecord[] = [];
+
+  private addEventListener(
+    element: HTMLElement,
+    event: string,
+    handler: EventListener
+  ): void {
+    element.addEventListener(event, handler);
+    this.eventListeners.push({ element, event, handler });
+  }
+
+  destroy(): void {
+    this.eventListeners.forEach(({ element, event, handler }) => {
+      element.removeEventListener(event, handler);
+    });
+    this.eventListeners = [];
+  }
+}
+```
+
+---
+
+### 6.2 その他の型定義
+
+#### 6.2.1 TouchAction型
+
+タッチボタンのアクション種別を表す型（TouchControlRenderer内で使用）
+
+```typescript
+/**
+ * TouchAction - タッチボタンのアクション種別
+ */
+export type TouchAction =
+  | 'left'
+  | 'right'
+  | 'down'
+  | 'rotate-cw'
+  | 'rotate-ccw'
+  | 'instant-drop';
+```
+
+#### 6.2.2 DeviceType型
+
+デバイスタイプを表す型
+
+```typescript
+/**
+ * DeviceType - デバイスタイプ
+ */
+export type DeviceType = 'mobile' | 'desktop';
+```
+
+---
+
+## 7. エラーハンドリング戦略
+
+### 7.1 エラー分類
+
+| エラー種別 | 例 | 処理方針 |
+|-----------|----|---------| 初期化エラー | コンストラクタでの失敗 | throw でエラーを伝播、呼び出し側で対処 |
+| 実行時エラー | 処理中の予期しないエラー | catch & log、処理をスキップして継続 |
+| バリデーションエラー | 不正な値の検出 | 警告ログ、デフォルト値で継続 |
+| ネットワークエラー | API通信失敗（該当なし） | N/A |
+| 致命的エラー | ゲームループの停止 | catch & stop、ユーザーに通知 |
+
+### 7.2 層ごとのエラーハンドリング方針
+
+#### 7.2.1 Application層
+
+**方針**: エラーをキャッチし、適切にログ出力。ビジネスロジックの一貫性を保つ。
+
+**実装例**:
+```typescript
+// LayoutCalculationService
+calculateBlockSize(viewport: ViewportSize): BlockSize {
+  try {
+    // 計算処理
+    const blockSize = /* ... */;
+    return new BlockSize(blockSize, viewport.isMobile());
+  } catch (error) {
+    console.error('Failed to calculate block size:', error);
+    // フォールバック: デフォルトサイズを返す
+    return new BlockSize(30, false);
+  }
+}
+```
+
+**ガイドライン**:
+- 値オブジェクトのバリデーションエラーはそのままthrow
+- サービスレベルでは適切なフォールバック値を返す
+- エラーログには十分なコンテキスト情報を含める
+
+#### 7.2.2 Presentation層
+
+**方針**: エラーをキャッチし、ユーザー体験を損なわないよう処理。UIの状態を一貫性のある状態に保つ。
+
+**実装例**:
+```typescript
+// GameController
+private setupResponsiveLayout(): void {
+  try {
+    // レイアウト処理
+  } catch (error) {
+    console.error('Failed to setup responsive layout:', error);
+    this.useDefaultLayout(); // フォールバック
+  }
+}
+```
+
+**ガイドライン**:
+- 致命的エラー以外はユーザーにアラートを表示しない
+- エラーでもゲームを継続できるようフォールバック処理を実装
+- 重要な操作（ゲーム開始等）の失敗のみユーザーに通知
+
+#### 7.2.3 値オブジェクト
+
+**方針**: バリデーションエラーは即座にthrow。呼び出し側で対処。
+
+**実装例**:
+```typescript
+// ViewportSize
+constructor(width: number, height: number) {
+  if (width < 0 || height < 0) {
+    throw new Error(
+      `ViewportSize must have non-negative dimensions. Got: ${width}x${height}`
+    );
+  }
+  // ...
+}
+```
+
+**ガイドライン**:
+- 不正な値では絶対にインスタンスを生成しない
+- エラーメッセージには具体的な値を含める
+- ドキュメントコメントで前提条件を明記
+
+### 7.3 エラーメッセージのフォーマット
+
+```typescript
+// 良い例: 具体的で actionable
+throw new Error(
+  `ViewportSize must have non-negative dimensions. Got: ${width}x${height}`
+);
+
+// 悪い例: 情報不足
+throw new Error('Invalid viewport size');
+```
+
+**フォーマット規則**:
+- 何が問題か明確に記述
+- 実際の値を含める
+- 期待される値を含める（可能な場合）
+
+### 7.4 エラー伝播ルール
+
+```
+[Presentation層]
+  - UIエラー → catch & log & フォールバック
+  - リサイズエラー → catch & log & スキップ
+  ↓ throw（致命的エラーのみ）
+  
+[Application層]
+  - ビジネスロジックエラー → catch & log & デフォルト値
+  - バリデーションエラー → throw（値オブジェクトから）
+  ↓ throw（バリデーションエラー）
+  
+[値オブジェクト]
+  - バリデーションエラー → throw
+```
+
+### 7.5 リカバリー戦略
+
+| シナリオ | リカバリー方法 | ユーザー影響 |
+|---------|-------------|------------|
+| レイアウト計算失敗 | デフォルトサイズ（30px）を使用 | デスクトップサイズで表示 |
+| タッチコントロール生成失敗 | タッチコントロールなしで継続 | キーボード操作のみ可能 |
+| リサイズ処理失敗 | 現在のサイズを維持 | リサイズ無効 |
+| 入力処理エラー | 入力を無視して継続 | 1回の入力が無視される |
+| ゲームループエラー | ゲームを停止、エラー表示 | ゲーム停止、再起動が必要 |
+
+---
+
+## 8. パフォーマンス最適化設計
+
+### 8.1 デバウンス処理
+
+#### 8.1.1 リサイズイベントのデバウンス
+
+**目的**: 連続したリサイズイベントによる過剰な再計算を防ぐ
+
+**実装**:
+```typescript
+private handleResizeWithDebounce(): void {
+  // 既存のタイマーをクリア
+  if (this.resizeTimeoutId !== null) {
+    clearTimeout(this.resizeTimeoutId);
+  }
+
+  // 新しいタイマーを設定
+  this.resizeTimeoutId = window.setTimeout(() => {
+    this.handleResize();
+    this.resizeTimeoutId = null;
+  }, 250); // 250msデバウンス
+}
+```
+
+**パラメータ調整**:
+- **250ms**: ユーザーがリサイズを終えたと判断する妥当な時間
+- 短すぎる（< 100ms）: デバウンス効果が薄い
+- 長すぎる（> 500ms）: レスポンスが遅く感じる
+
+**効果**:
+- リサイズ中の再計算回数を大幅削減（連続10回 → 1回）
+- CPU使用率の低減
+- スムーズなリサイズ体験
+
+### 8.2 メモリリーク対策
+
+#### 8.2.1 イベントリスナーの自動管理
+
+**問題**: イベントリスナーを適切に解除しないとメモリリーク
+
+**解決策**: EventListenerRecordによる一元管理
+
+```typescript
+class TouchControlRenderer {
+  private eventListeners: EventListenerRecord[] = [];
+
+  private addEventListener(
+    element: HTMLElement,
+    event: string,
+    handler: EventListener
+  ): void {
+    element.addEventListener(event, handler);
+    this.eventListeners.push({ element, event, handler });
+  }
+
+  destroy(): void {
+    // 全リスナーを自動解放
+    this.eventListeners.forEach(({ element, event, handler }) => {
+      element.removeEventListener(event, handler);
+    });
+    this.eventListeners = [];
+  }
+}
+```
+
+**効果**:
+- リスナーの登録漏れ・解除漏れを防ぐ
+- メモリリークのリスクを最小化
+- コードの保守性向上
+
+#### 8.2.2 タイマーのクリーンアップ
+
+**問題**: setTimeoutのクリアを忘れるとメモリリーク
+
+**解決策**: コンポーネント破棄時に確実にクリア
+
+```typescript
+class GameController {
+  private resizeTimeoutId: number | null = null;
+
+  private removeEventListeners(): void {
+    // タイマーをクリア
+    if (this.resizeTimeoutId !== null) {
+      clearTimeout(this.resizeTimeoutId);
+      this.resizeTimeoutId = null;
+    }
+  }
+}
+```
+
+### 8.3 レンダリング最適化
+
+#### 8.3.1 不要な再描画の防止
+
+**実装**: サイズ変更チェック
+
+```typescript
+private handleResize(): void {
+  const newViewport = ViewportSize.fromWindow();
+
+  // サイズが変わらなければスキップ
+  if (this.currentViewportSize?.equals(newViewport)) {
+    return;
+  }
+
+  // 再描画処理
+  // ...
+}
+```
+
+**効果**:
+- 不要な再計算・再描画を回避
+- バッテリー消費の低減（モバイル）
+
+#### 8.3.2 Canvas描画の最適化
+
+**既存の最適化を維持**:
+- `requestAnimationFrame`によるフレーム同期
+- 必要最小限の領域のみ描画（clearRect → fillRect）
+
+### 8.4 パフォーマンスメトリクス
+
+#### 8.4.1 測定項目
+
+| 項目 | 目標値 | 測定方法 |
+|------|-------|---------|
+| タッチ操作応答時間 | < 50ms | `performance.now()` |
+| リサイズ処理時間 | < 100ms | `console.time()` |
+| ゲームループFPS | 30fps維持 | フレームカウンター |
+| メモリ使用量増加 | < 10MB/時間 | Chrome DevTools Memory Profiler |
+
+#### 8.4.2 ボトルネック分析
+
+**想定されるボトルネック**:
+1. **リサイズ時のCanvas再描画**: デバウンスで対処済み
+2. **タッチイベント処理**: クールダウンで対処済み
+3. **DOM要素の大量生成**: 1回のみ生成で対処済み
+
+**モニタリング方法**:
+```typescript
+// パフォーマンス計測（開発時のみ）
+const startTime = performance.now();
+this.handleResize();
+const endTime = performance.now();
+console.log(`Resize took ${endTime - startTime}ms`);
+```
+
+### 8.5 モバイル端末での最適化
+
+#### 8.5.1 タッチイベントの最適化
+
+**passive eventリスナーの使用**:
+```typescript
+// 将来的な最適化案
+element.addEventListener('touchstart', handler, { passive: true });
+```
+
+**効果**:
+- スクロールパフォーマンスの向上
+- ブラウザが最適化を適用可能
+
+**注意**: `preventDefault()`と併用不可
+
+#### 8.5.2 Canvas解像度の調整
+
+**現状**: ブロックサイズを動的に調整（15px〜30px）
+
+**効果**:
+- モバイルでは小さいCanvasで描画負荷を軽減
+- デスクトップでは高解像度で視認性向上
+
+---
+
+## 9. CSS設計
+
+### 9.1 タッチコントロール用スタイル
+
+#### 9.1.1 ファイル情報
+
+**パス**: `public/styles.css`（既存ファイルに追加）
+
+#### 9.1.2 CSS定義
+
+```css
+/* ========================================
+   タッチコントロール
+   ======================================== */
+
+.touch-controls {
+  display: none; /* デフォルトは非表示 */
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background-color: #34495e;
+  border-radius: 8px;
+  margin-top: 16px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* モバイル表示時 */
+@media (max-width: 767px) {
+  .touch-controls {
+    max-width: 100%;
+  }
+}
+
+/* 回転ボタンコンテナ */
+.rotation-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* 方向ボタンコンテナ */
+.direction-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* 即落下ボタンコンテナ */
+.drop-button {
+  display: flex;
+  justify-content: center;
+}
+
+/* タッチボタン共通スタイル */
+.touch-btn {
+  min-width: 60px;
+  min-height: 60px;
+  padding: 12px;
+  font-size: 24px;
+  font-weight: bold;
+  background-color: #2c3e50;
+  color: #ecf0f1;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.1s ease;
+  -webkit-tap-highlight-color: transparent; /* iOSのタップハイライト無効化 */
+}
+
+/* ホバー時 */
+.touch-btn:hover {
+  background-color: #34495e;
+  border-color: #5dade2;
+}
+
+/* アクティブ時（タッチ中） */
+.touch-btn.active {
+  background-color: #3498db;
+  border-color: #2980b9;
+  transform: scale(0.95);
+}
+
+/* フォーカス時 */
+.touch-btn:focus {
+  outline: 2px solid #5dade2;
+  outline-offset: 2px;
+}
+
+/* 無効時 */
+.touch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 即落下ボタン（大きめ） */
+.drop-button .touch-btn {
+  min-width: 120px;
+  font-size: 18px;
+}
+
+/* モバイル向け最適化 */
+@media (max-width: 767px) {
+  .touch-btn {
+    min-width: 70px;
+    min-height: 70px;
+    font-size: 28px;
+  }
+
+  .drop-button .touch-btn {
+    min-width: 140px;
+    font-size: 20px;
+  }
+}
+
+/* 小さい画面向け（iPhone SE等） */
+@media (max-width: 374px) {
+  .touch-btn {
+    min-width: 60px;
+    min-height: 60px;
+    font-size: 24px;
+  }
+
+  .drop-button .touch-btn {
+    min-width: 120px;
+    font-size: 18px;
+  }
+
+  .touch-controls {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .rotation-buttons,
+  .direction-buttons {
+    gap: 8px;
+  }
+}
+
+/* アクセシビリティ: プリファー・レデューサード・モーション */
+@media (prefers-reduced-motion: reduce) {
+  .touch-btn {
+    transition: none;
+  }
+
+  .touch-btn.active {
+    transform: none;
+  }
+}
+
+/* ダークモード対応（将来的な拡張） */
+@media (prefers-color-scheme: dark) {
+  .touch-controls {
+    background-color: #1a1a1a;
+  }
+
+  .touch-btn {
+    background-color: #2c2c2c;
+    color: #ffffff;
+    border-color: #4a9eff;
+  }
+
+  .touch-btn:hover {
+    background-color: #3c3c3c;
+    border-color: #6db3ff;
+  }
+
+  .touch-btn.active {
+    background-color: #4a9eff;
+    border-color: #3a8eef;
+  }
+}
+```
+
+### 9.2 レスポンシブ対応のCanvas配置
+
+```css
+/* ========================================
+   Canvas レスポンシブ対応
+   ======================================== */
+
+#game-canvas {
+  display: block;
+  margin: 0 auto;
+  border: 2px solid #34495e;
+  border-radius: 4px;
+  background-color: #2c3e50;
+  /* サイズはJavaScriptで動的に設定 */
+}
+
+/* Canvas コンテナ */
+.canvas-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  min-height: 400px;
+}
+
+/* モバイル表示時 */
+@media (max-width: 767px) {
+  .canvas-container {
+    padding: 8px;
+    min-height: 300px;
+  }
+
+  #game-canvas {
+    max-width: 90vw;
+    height: auto;
+  }
+}
+```
+
+### 9.3 CSSクラス命名規則
+
+**BEM（Block Element Modifier）スタイル**:
+- Block: `.touch-controls`
+- Element: `.touch-controls__button`（今回は簡略化して`.touch-btn`）
+- Modifier: `.touch-btn--active`（今回はクラス`.active`で対応）
+
+**理由**:
+- シンプルで理解しやすい
+- 既存のスタイルと統一感を保つ
+
+### 9.4 CSS変数による拡張性（将来的な改善案）
+
+```css
+:root {
+  --touch-btn-bg: #2c3e50;
+  --touch-btn-border: #3498db;
+  --touch-btn-active-bg: #3498db;
+  --touch-btn-text: #ecf0f1;
+  --touch-btn-size: 60px;
+}
+
+.touch-btn {
+  min-width: var(--touch-btn-size);
+  min-height: var(--touch-btn-size);
+  background-color: var(--touch-btn-bg);
+  color: var(--touch-btn-text);
+  border-color: var(--touch-btn-border);
+}
+```
+
+---
+
+**Part 2 完成！**
+
+以下のセクションを完成させたのだ：
+
+### ✅ 完成内容（Part 2）
+
+5. **Presentation層コンポーネント（続き）**
+   - CanvasRenderer（変更）- 完全な変更差分、テストケース
+   - GameController（変更）- 完全な変更差分、処理フロー、テストケース
+
+6. **TypeScript型定義とインターフェース**
+   - EventListenerRecord
+   - TouchAction型
+   - DeviceType型
+
+7. **エラーハンドリング戦略**
+   - エラー分類
+   - 層ごとの方針
+   - エラーメッセージフォーマット
+   - リカバリー戦略
+
+8. **パフォーマンス最適化設計**
+   - デバウンス処理
+   - メモリリーク対策
+   - レンダリング最適化
+   - パフォーマンスメトリクス
+   - モバイル最適化
+
+9. **CSS設計**
+   - タッチコントロール用スタイル（完全定義）
+   - レスポンシブ対応
+   - アクセシビリティ対応
+   - ダークモード対応
+
+---
+
+次のステップ:
+- **Part 3**: テスト設計詳細、実装マイルストーン、移行計画
