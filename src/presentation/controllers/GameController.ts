@@ -47,6 +47,12 @@ export class GameController {
     // イベントリスナーを設定
     this.setupEventListeners();
 
+    // 既存のTouchControlRendererを破棄（再実行時の対策）
+    if (this.touchControlRenderer) {
+      this.touchControlRenderer.destroy();
+      this.touchControlRenderer = null;
+    }
+
     // TouchControlRendererを作成
     if (this.touchControlsContainer) {
       this.touchControlRenderer = new TouchControlRenderer(

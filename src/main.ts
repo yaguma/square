@@ -91,6 +91,14 @@ function main() {
 
   window.addEventListener('resize', debouncedResize);
 
+  // クリーンアップ関数（ページアンロード時）
+  const cleanup = () => {
+    window.removeEventListener('resize', debouncedResize);
+    gameController.stop();
+  };
+
+  window.addEventListener('beforeunload', cleanup);
+
   console.log('Square game started with mobile support!');
 }
 
