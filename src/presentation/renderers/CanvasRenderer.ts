@@ -10,6 +10,7 @@ const GRID_COLOR = '#34495e';
  */
 export class CanvasRenderer {
   private ctx: CanvasRenderingContext2D;
+  private blockSize: number;
 
   /**
    * コンストラクタ

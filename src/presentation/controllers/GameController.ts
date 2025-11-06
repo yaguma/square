@@ -1,9 +1,12 @@
 import { GameApplicationService } from '@application/services/GameApplicationService';
 import { InputHandlerService } from '@application/services/InputHandlerService';
+import { LayoutCalculationService } from '@application/services/LayoutCalculationService';
 import { CanvasRenderer } from '@presentation/renderers/CanvasRenderer';
 import { UIRenderer } from '@presentation/renderers/UIRenderer';
+import { TouchControlRenderer } from '@presentation/renderers/TouchControlRenderer';
 import { FrameTimer } from '@infrastructure/timer/FrameTimer';
 import { GameDto } from '@application/dto/GameDto';
+import { ViewportSize } from '@application/value-objects/ViewportSize';
 
 /**
  * GameController
@@ -13,6 +16,7 @@ import { GameDto } from '@application/dto/GameDto';
 export class GameController {
   private frameTimer: FrameTimer;
   private currentGameId: string | null = null;
+  private touchControlRenderer: TouchControlRenderer | null = null;
 
   // イベントハンドラーを保持（削除時に必要）
   private keydownHandler?: (event: KeyboardEvent) => void;
@@ -25,7 +29,9 @@ export class GameController {
     private gameApplicationService: GameApplicationService,
     private inputHandlerService: InputHandlerService,
     private canvasRenderer: CanvasRenderer,
-    private uiRenderer: UIRenderer
+    private uiRenderer: UIRenderer,
+    private touchControlsContainer: HTMLElement | null = null,
+    private layoutCalculationService: LayoutCalculationService | null = null
   ) {
     this.frameTimer = new FrameTimer();
   }
@@ -40,6 +46,33 @@ export class GameController {
 
     // イベントリスナーを設定
     this.setupEventListeners();
+
+    // 既存のTouchControlRendererを破棄（再実行時の対策）
+    if (this.touchControlRenderer) {
+      this.touchControlRenderer.destroy();
+      this.touchControlRenderer = null;
+    }
+
+    // TouchControlRendererを作成
+    if (this.touchControlsContainer) {
+      this.touchControlRenderer = new TouchControlRenderer(
+        this.touchControlsContainer,
+        this.inputHandlerService,
+        this.currentGameId
+      );
+      this.touchControlRenderer.render();
+
+      // 初期表示状態を設定
+      if (this.layoutCalculationService) {
+        const viewport = ViewportSize.create(window.innerWidth, window.innerHeight);
+        const shouldShow = this.layoutCalculationService.shouldShowTouchControls(viewport);
+        if (shouldShow) {
+          this.touchControlRenderer.show();
+        } else {
+          this.touchControlRenderer.hide();
+        }
+      }
+    }
 
     // 初回描画
     this.render(gameDto);
@@ -56,6 +89,12 @@ export class GameController {
   stop(): void {
     this.frameTimer.stop();
     this.removeEventListeners();
+
+    // タッチコントロールを破棄
+    if (this.touchControlRenderer) {
+      this.touchControlRenderer.destroy();
+      this.touchControlRenderer = null;
+    }
   }
 
   /**
@@ -196,5 +235,50 @@ export class GameController {
   private showError(message: string): void {
     // シンプルなエラー表示（将来的にはUIを改善する）
     alert(message);
+  }
+
+  /**
+   * リサイズイベントを処理
+   *
+   * @param viewport - 新しいビューポートサイズ
+   *
+   * @remarks
+   * - ブロックサイズを再計算
+   * - Canvasサイズを更新
+   * - タッチコントロールの表示/非表示を切り替え
+   * - 現在のゲーム状態を再描画
+   */
+  handleResize(viewport: ViewportSize): void {
+    if (!this.layoutCalculationService) {
+      return;
+    }
+
+    try {
+      // ブロックサイズを再計算
+      const blockSize = this.layoutCalculationService.calculateBlockSize(viewport);
+
+      // Canvasサイズを更新
+      this.canvasRenderer.updateBlockSize(blockSize.size);
+
+      // タッチコントロールの表示/非表示を切り替え
+      const shouldShowTouchControls =
+        this.layoutCalculationService.shouldShowTouchControls(viewport);
+
+      if (this.touchControlRenderer) {
+        if (shouldShowTouchControls) {
+          this.touchControlRenderer.show();
+        } else {
+          this.touchControlRenderer.hide();
+        }
+      }
+
+      // 現在のゲーム状態を再描画
+      if (this.currentGameId) {
+        const gameDto = this.gameApplicationService.getGameState(this.currentGameId);
+        this.render(gameDto);
+      }
+    } catch (error) {
+      console.error('Resize handling error:', error);
+    }
   }
 }

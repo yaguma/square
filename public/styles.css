@@ -330,33 +330,83 @@ kbd {
 }
 
 /* ========================================
-   Canvas レスポンシブ対応
+   レスポンシブレイアウト
    ======================================== */
 
-#game-canvas {
-  display: block;
-  margin: 0 auto;
-  /* サイズはJavaScriptで動的に設定 */
-}
-
-/* Canvas コンテナ */
-.canvas-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px;
-  min-height: 400px;
-}
-
-/* モバイル表示時 */
+/* モバイル端末（768px未満） */
 @media (max-width: 767px) {
-  .canvas-container {
-    padding: 8px;
-    min-height: 300px;
+  #app {
+    padding: 10px;
+  }
+
+  header h1 {
+    font-size: 32px;
+  }
+
+  .game-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .game-info {
+    flex-direction: row;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .score-panel,
+  .next-panel {
+    flex: 1;
+  }
+
+  .game-field {
+    width: 100%;
+    display: flex;
+    justify-content: center;
   }
 
   #game-canvas {
     max-width: 90vw;
     height: auto;
+  }
+
+  .controls {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .touch-controls {
+    max-width: 100%;
+  }
+
+  .instructions {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .instructions h2 {
+    font-size: 18px;
+  }
+
+  .instructions ul {
+    font-size: 14px;
+  }
+}
+
+/* 非常に小さい画面（375px未満） */
+@media (max-width: 374px) {
+  header h1 {
+    font-size: 28px;
+  }
+}
+
+/* デスクトップ（768px以上） */
+@media (min-width: 768px) {
+  .touch-controls {
+    display: none !important; /* デスクトップでは常に非表示 */
   }
 }
