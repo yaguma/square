@@ -4778,3 +4778,961 @@ element.addEventListener('touchstart', handler, { passive: true });
 
 次のステップ:
 - **Part 3**: テスト設計詳細、実装マイルストーン、移行計画
+
+---
+
+## 10. テスト設計詳細
+
+### 10.1 テスト戦略概要
+
+#### 10.1.1 テストレベル
+
+| レベル | 目的 | 対象 | ツール | カバレッジ目標 |
+|-------|------|------|--------|--------------|
+| ユニットテスト | 個別機能の検証 | 値オブジェクト、サービス、コンポーネント | Vitest | 90%以上 |
+| 統合テスト | コンポーネント間連携 | サービス間、コンポーネント間 | Vitest + jsdom | 80%以上 |
+| E2Eテスト | ユーザーシナリオ | ゲーム全体 | Playwright（将来） | 主要フロー100% |
+
+#### 10.1.2 テスト実行戦略
+
+```bash
+# 開発時: ウォッチモード
+npm run test -- --watch
+
+# コミット前: 全テスト実行
+npm run test
+
+# CI/CD: カバレッジ付き
+npm run test:coverage
+```
+
+### 10.2 統合テストシナリオ
+
+#### 10.2.1 タッチ入力フロー統合テスト
+
+**ファイル**: `tests/integration/touch-input-flow.test.ts`
+
+```typescript
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { GameApplicationService } from '@application/services/GameApplicationService';
+import { InputHandlerService } from '@application/services/InputHandlerService';
+import { CooldownManager } from '@application/services/CooldownManager';
+import { TouchControlRenderer } from '@presentation/renderers/TouchControlRenderer';
+import { InMemoryGameRepository } from '@infrastructure/repositories/InMemoryGameRepository';
+import { RandomGenerator } from '@infrastructure/random/RandomGenerator';
+
+describe('タッチ入力フロー統合テスト', () => {
+  let gameService: GameApplicationService;
+  let inputHandler: InputHandlerService;
+  let touchRenderer: TouchControlRenderer;
+  let container: HTMLElement;
+  let gameId: string;
+
+  beforeEach(() => {
+    // 依存関係を構築
+    const repository = new InMemoryGameRepository();
+    const randomGen = new RandomGenerator();
+    gameService = new GameApplicationService(repository, randomGen);
+    
+    const cooldownManager = new CooldownManager();
+    inputHandler = new InputHandlerService(gameService, cooldownManager);
+
+    // DOM環境を準備
+    container = document.createElement('div');
+    container.id = 'touch-controls-container';
+    document.body.appendChild(container);
+
+    // ゲームを開始
+    const gameDto = gameService.startNewGame();
+    gameId = gameDto.gameId;
+
+    // タッチコントロールを初期化
+    touchRenderer = new TouchControlRenderer(container, inputHandler, gameId);
+    touchRenderer.render();
+    touchRenderer.show();
+  });
+
+  afterEach(() => {
+    touchRenderer.destroy();
+    document.body.removeChild(container);
+  });
+
+  it('左ボタンタップでブロックが左に移動', async () => {
+    // 初期位置を取得
+    const initialState = gameService.getGameState(gameId);
+    const initialX = initialState.fallingBlock?.position.x ?? 0;
+
+    // 左ボタンをタップ
+    const leftButton = container.querySelector('[data-action="left"]') as HTMLElement;
+    leftButton.dispatchEvent(new TouchEvent('touchstart', { bubbles: true }));
+
+    // 状態を確認
+    const newState = gameService.getGameState(gameId);
+    const newX = newState.fallingBlock?.position.x ?? 0;
+
+    expect(newX).toBeLessThan(initialX);
+  });
+
+  it('右ボタンタップでブロックが右に移動', async () => {
+    const initialState = gameService.getGameState(gameId);
+    const initialX = initialState.fallingBlock?.position.x ?? 0;
+
+    const rightButton = container.querySelector('[data-action="right"]') as HTMLElement;
+    rightButton.dispatchEvent(new TouchEvent('touchstart', { bubbles: true }));
+
+    const newState = gameService.getGameState(gameId);
+    const newX = newState.fallingBlock?.position.x ?? 0;
+
+    expect(newX).toBeGreaterThan(initialX);
+  });
+
+  it('回転ボタンタップでブロックが回転', async () => {
+    const initialState = gameService.getGameState(gameId);
+    const initialRotation = initialState.fallingBlock?.rotation ?? 0;
+
+    const rotateButton = container.querySelector('[data-action="rotate-cw"]') as HTMLElement;
+    rotateButton.dispatchEvent(new TouchEvent('touchstart', { bubbles: true }));
+
+    const newState = gameService.getGameState(gameId);
+    const newRotation = newState.fallingBlock?.rotation ?? 0;
+
+    expect(newRotation).not.toBe(initialRotation);
+  });
+
+  it('即落下ボタンでブロックが最下部に移動', async () => {
+    const initialState = gameService.getGameState(gameId);
+    const initialY = initialState.fallingBlock?.position.y ?? 0;
+
+    const dropButton = container.querySelector('[data-action="instant-drop"]') as HTMLElement;
+    dropButton.dispatchEvent(new TouchEvent('touchstart', { bubbles: true }));
+
+    const newState = gameService.getGameState(gameId);
+    const newY = newState.fallingBlock?.position.y ?? 0;
+
+    expect(newY).toBeGreaterThan(initialY);
+  });
+
+  it('クールダウン中の連続入力を防ぐ', async () => {
+    const initialState = gameService.getGameState(gameId);
+    const initialX = initialState.fallingBlock?.position.x ?? 0;
+
+    const leftButton = container.querySelector('[data-action="left"]') as HTMLElement;
+
+    // 1回目
+    leftButton.dispatchEvent(new TouchEvent('touchstart', { bubbles: true }));
+    const state1 = gameService.getGameState(gameId);
+    const x1 = state1.fallingBlock?.position.x ?? 0;
+
+    // 2回目（すぐに）
+    leftButton.dispatchEvent(new TouchEvent('touchstart', { bubbles: true }));
+    const state2 = gameService.getGameState(gameId);
+    const x2 = state2.fallingBlock?.position.x ?? 0;
+
+    // 1回目は移動、2回目は無視される
+    expect(x1).toBeLessThan(initialX);
+    expect(x2).toBe(x1); // 変化なし
+  });
+
+  it('視覚フィードバックが正しく動作', () => {
+    const leftButton = container.querySelector('[data-action="left"]') as HTMLElement;
+
+    // タッチ前
+    expect(leftButton.classList.contains('active')).toBe(false);
+
+    // タッチ開始
+    leftButton.dispatchEvent(new TouchEvent('touchstart', { bubbles: true }));
+    expect(leftButton.classList.contains('active')).toBe(true);
+
+    // タッチ終了
+    leftButton.dispatchEvent(new TouchEvent('touchend', { bubbles: true }));
+    expect(leftButton.classList.contains('active')).toBe(false);
+  });
+});
+```
+
+#### 10.2.2 レスポンシブレイアウト統合テスト
+
+**ファイル**: `tests/integration/responsive-layout.test.ts`
+
+```typescript
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { LayoutCalculationService } from '@application/services/LayoutCalculationService';
+import { CanvasRenderer } from '@presentation/renderers/CanvasRenderer';
+import { GameController } from '@presentation/controllers/GameController';
+import { ViewportSize } from '@application/value-objects/ViewportSize';
+
+describe('レスポンシブレイアウト統合テスト', () => {
+  let layoutService: LayoutCalculationService;
+  let canvas: HTMLCanvasElement;
+  let canvasRenderer: CanvasRenderer;
+
+  beforeEach(() => {
+    layoutService = new LayoutCalculationService();
+    canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+    canvasRenderer = new CanvasRenderer(canvas);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(canvas);
+  });
+
+  it('モバイルサイズ（375x667）で適切にレイアウト', () => {
+    const viewport = new ViewportSize(375, 667);
+    const blockSize = layoutService.calculateBlockSize(viewport);
+    const canvasSize = layoutService.calculateCanvasSize(blockSize);
+
+    canvasRenderer.updateBlockSize(blockSize.size);
+    canvas.width = canvasSize.width;
+    canvas.height = canvasSize.height;
+
+    expect(blockSize.size).toBeGreaterThanOrEqual(15);
+    expect(blockSize.size).toBeLessThanOrEqual(30);
+    expect(canvas.width).toBe(blockSize.size * 8);
+    expect(canvas.height).toBe(blockSize.size * 20);
+  });
+
+  it('デスクトップサイズ（1024x768）で適切にレイアウト', () => {
+    const viewport = new ViewportSize(1024, 768);
+    const blockSize = layoutService.calculateBlockSize(viewport);
+    const canvasSize = layoutService.calculateCanvasSize(blockSize);
+
+    canvasRenderer.updateBlockSize(blockSize.size);
+    canvas.width = canvasSize.width;
+    canvas.height = canvasSize.height;
+
+    expect(blockSize.size).toBeGreaterThanOrEqual(20);
+    expect(blockSize.size).toBeLessThanOrEqual(40);
+    expect(canvas.width).toBe(blockSize.size * 8);
+    expect(canvas.height).toBe(blockSize.size * 20);
+  });
+
+  it('ブレークポイント前後でタッチコントロール表示が切り替わる', () => {
+    const mobileViewport = new ViewportSize(767, 600);
+    const desktopViewport = new ViewportSize(768, 600);
+
+    expect(layoutService.shouldShowTouchControls(mobileViewport)).toBe(true);
+    expect(layoutService.shouldShowTouchControls(desktopViewport)).toBe(false);
+  });
+
+  it('リサイズシミュレーション: モバイル → デスクトップ', () => {
+    // モバイルサイズ
+    let viewport = new ViewportSize(375, 667);
+    let blockSize = layoutService.calculateBlockSize(viewport);
+    canvasRenderer.updateBlockSize(blockSize.size);
+
+    const mobileBlockSize = canvasRenderer.getBlockSize();
+    expect(mobileBlockSize).toBeLessThanOrEqual(30);
+
+    // デスクトップサイズにリサイズ
+    viewport = new ViewportSize(1024, 768);
+    blockSize = layoutService.calculateBlockSize(viewport);
+    canvasRenderer.updateBlockSize(blockSize.size);
+
+    const desktopBlockSize = canvasRenderer.getBlockSize();
+    expect(desktopBlockSize).toBeGreaterThan(mobileBlockSize);
+    expect(desktopBlockSize).toBeGreaterThanOrEqual(20);
+  });
+
+  it('極端なサイズでも正常に動作', () => {
+    // 非常に小さい画面
+    const tinyViewport = new ViewportSize(320, 480);
+    const tinyBlockSize = layoutService.calculateBlockSize(tinyViewport);
+    expect(tinyBlockSize.size).toBeGreaterThanOrEqual(15); // 最小値
+
+    // 非常に大きい画面
+    const hugeViewport = new ViewportSize(2560, 1440);
+    const hugeBlockSize = layoutService.calculateBlockSize(hugeViewport);
+    expect(hugeBlockSize.size).toBeLessThanOrEqual(40); // 最大値
+  });
+});
+```
+
+### 10.3 E2Eテストシナリオ（将来実装）
+
+#### 10.3.1 主要ユーザーフロー
+
+**ツール**: Playwright（将来的に導入）
+
+**シナリオ1: モバイルでゲームプレイ**
+```typescript
+// tests/e2e/mobile-gameplay.spec.ts
+test('モバイルでタッチ操作によるゲームプレイ', async ({ page }) => {
+  // モバイルビューポートを設定
+  await page.setViewportSize({ width: 375, height: 667 });
+  
+  // ゲームページを開く
+  await page.goto('http://localhost:5173');
+  
+  // タッチコントロールが表示されている
+  await expect(page.locator('.touch-controls')).toBeVisible();
+  
+  // ゲーム開始
+  await page.click('#start-btn');
+  
+  // ブロックが表示される
+  await expect(page.locator('canvas')).toBeVisible();
+  
+  // 左ボタンをタップ
+  await page.tap('[data-action="left"]');
+  
+  // ゲームが応答している（50ms以内）
+  await page.waitForTimeout(50);
+  
+  // スコアが更新される（ブロックを消したら）
+  // ...
+});
+```
+
+**シナリオ2: デスクトップでキーボード操作**
+```typescript
+test('デスクトップでキーボード操作によるゲームプレイ', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('http://localhost:5173');
+  
+  // タッチコントロールが非表示
+  await expect(page.locator('.touch-controls')).toBeHidden();
+  
+  // ゲーム開始
+  await page.click('#start-btn');
+  
+  // キーボード操作
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowUp'); // 回転
+  await page.keyboard.press(' '); // 即落下
+  
+  // ゲームが正常に動作
+  // ...
+});
+```
+
+**シナリオ3: リサイズ時の動的調整**
+```typescript
+test('ウィンドウリサイズ時に動的にレイアウトが調整される', async ({ page }) => {
+  await page.goto('http://localhost:5173');
+  
+  // デスクトップサイズ
+  await page.setViewportSize({ width: 1024, height: 768 });
+  const desktopCanvasSize = await page.locator('canvas').boundingBox();
+  
+  // モバイルサイズにリサイズ
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.waitForTimeout(300); // デバウンス待ち
+  
+  const mobileCanvasSize = await page.locator('canvas').boundingBox();
+  
+  // サイズが変わっている
+  expect(mobileCanvasSize?.width).toBeLessThan(desktopCanvasSize?.width!);
+  
+  // タッチコントロールが表示される
+  await expect(page.locator('.touch-controls')).toBeVisible();
+});
+```
+
+### 10.4 テストカバレッジ目標
+
+#### 10.4.1 コンポーネント別カバレッジ
+
+| コンポーネント | 目標カバレッジ | 優先度 |
+|--------------|--------------|-------|
+| 値オブジェクト | 100% | 高 |
+| Application層サービス | 95% | 高 |
+| Presentation層コンポーネント | 85% | 中 |
+| 統合テスト | 主要フロー100% | 高 |
+| E2Eテスト | 主要シナリオ100% | 中 |
+
+#### 10.4.2 カバレッジレポート
+
+```bash
+# カバレッジレポート生成
+npm run test:coverage
+
+# 出力例
+----------------------|---------|----------|---------|---------|
+File                  | % Stmts | % Branch | % Funcs | % Lines |
+----------------------|---------|----------|---------|---------|
+All files             |   92.5  |   88.2   |   94.1  |   92.8  |
+ value-objects/       |   100   |   100    |   100   |   100   |
+  ViewportSize.ts     |   100   |   100    |   100   |   100   |
+  BlockSize.ts        |   100   |   100    |   100   |   100   |
+  CanvasSize.ts       |   100   |   100    |   100   |   100   |
+  InputCommand.ts     |   100   |   100    |   100   |   100   |
+ services/            |   95.2  |   91.3   |   96.7  |   95.5  |
+  LayoutCalculation   |   96.8  |   93.5   |   100   |   97.1  |
+  CooldownManager     |   98.2  |   95.8   |   100   |   98.6  |
+  InputHandler        |   90.5  |   85.2   |   90.0  |   91.2  |
+ renderers/           |   87.3  |   82.1   |   88.9  |   87.8  |
+  TouchControl        |   88.5  |   84.3   |   90.0  |   89.1  |
+  CanvasRenderer      |   86.1  |   80.0   |   87.5  |   86.5  |
+----------------------|---------|----------|---------|---------|
+```
+
+### 10.5 テストデータ準備
+
+#### 10.5.1 モックデータ
+
+```typescript
+// tests/fixtures/game-fixtures.ts
+
+export const createMockGameDto = (overrides = {}) => ({
+  gameId: 'test-game-id',
+  state: 'playing',
+  field: Array(20).fill(null).map(() => Array(8).fill(null)),
+  fallingBlock: {
+    pattern: [
+      ['blue', 'blue'],
+      ['blue', 'blue']
+    ],
+    position: { x: 3, y: 0 },
+    rotation: 0
+  },
+  score: 0,
+  level: 1,
+  linesCleared: 0,
+  ...overrides
+});
+
+export const createMockViewportSizes = () => ({
+  iPhoneSE: new ViewportSize(375, 667),
+  iPhone12: new ViewportSize(390, 844),
+  iPad: new ViewportSize(768, 1024),
+  desktop: new ViewportSize(1024, 768),
+  widescreen: new ViewportSize(1920, 1080),
+});
+```
+
+#### 10.5.2 テスト用ユーティリティ
+
+```typescript
+// tests/utils/test-helpers.ts
+
+export const waitForCondition = async (
+  condition: () => boolean,
+  timeout = 1000
+): Promise<void> => {
+  const startTime = Date.now();
+  while (!condition()) {
+    if (Date.now() - startTime > timeout) {
+      throw new Error('Timeout waiting for condition');
+    }
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+};
+
+export const simulateTouchEvent = (
+  element: HTMLElement,
+  eventType: 'touchstart' | 'touchend' | 'touchcancel'
+): void => {
+  const event = new TouchEvent(eventType, {
+    bubbles: true,
+    cancelable: true,
+    touches: eventType === 'touchstart' ? [{ clientX: 0, clientY: 0 } as Touch] : [],
+  });
+  element.dispatchEvent(event);
+};
+```
+
+---
+
+## 11. 実装手順とマイルストーン
+
+### 11.1 実装フェーズ概要
+
+```
+Phase 1: 基盤整備（3-4日）
+  ↓
+Phase 2: タッチUI実装（2-3日）
+  ↓
+Phase 3: 統合と動作確認（2日）
+  ↓
+Phase 4: テストとリファクタリング（2-3日）
+
+合計見積もり: 9-12日
+```
+
+### 11.2 Phase 1: 基盤整備（3-4日）
+
+#### 11.2.1 タスク一覧
+
+| # | タスク | 説明 | 見積もり | 依存関係 |
+|---|--------|------|---------|---------|
+| 1.1 | InputCommand enum作成 | 入力コマンドの列挙型定義 | 0.5時間 | なし |
+| 1.2 | ViewportSize作成 | ビューポートサイズ値オブジェクト | 1時間 | なし |
+| 1.3 | BlockSize作成 | ブロックサイズ値オブジェクト | 1時間 | なし |
+| 1.4 | CanvasSize作成 | Canvasサイズ値オブジェクト | 1時間 | なし |
+| 1.5 | 値オブジェクトのテスト作成 | 4つの値オブジェクトのテスト | 4時間 | 1.1-1.4 |
+| 1.6 | LayoutCalculationService作成 | レイアウト計算サービス | 3時間 | 1.2-1.4 |
+| 1.7 | LayoutCalculationServiceテスト | サービスのテスト | 3時間 | 1.6 |
+| 1.8 | CooldownManager作成 | クールダウン管理サービス | 2時間 | 1.1 |
+| 1.9 | CooldownManagerテスト | サービスのテスト | 2時間 | 1.8 |
+| 1.10 | InputHandlerService変更 | クールダウン統合 | 3時間 | 1.8, 1.1 |
+| 1.11 | InputHandlerServiceテスト更新 | 新機能のテスト追加 | 2時間 | 1.10 |
+
+**Phase 1 合計**: 22.5時間（約3日）
+
+#### 11.2.2 完了条件
+
+- ✅ 全ての値オブジェクトが実装され、テストがパス
+- ✅ Application層サービスが実装され、テストがパス
+- ✅ カバレッジが95%以上
+- ✅ 既存のテストが全てパス
+
+#### 11.2.3 実装順序
+
+```
+Day 1 (8時間):
+  - InputCommand, ViewportSize, BlockSize, CanvasSizeを実装
+  - 値オブジェクトのテスト作成
+
+Day 2 (8時間):
+  - LayoutCalculationServiceを実装
+  - LayoutCalculationServiceのテスト作成
+  - CooldownManagerを実装（前半）
+
+Day 3 (6.5時間):
+  - CooldownManagerを完成（後半）
+  - CooldownManagerのテスト作成
+  - InputHandlerServiceの変更とテスト更新
+```
+
+### 11.3 Phase 2: タッチUI実装（2-3日）
+
+#### 11.3.1 タスク一覧
+
+| # | タスク | 説明 | 見積もり | 依存関係 |
+|---|--------|------|---------|---------|
+| 2.1 | EventListenerRecord型定義 | イベントリスナー記録型 | 0.5時間 | なし |
+| 2.2 | TouchControlRenderer作成 | タッチコントロールUI | 4時間 | 1.10, 2.1 |
+| 2.3 | TouchControlRendererテスト | UIのテスト | 4時間 | 2.2 |
+| 2.4 | タッチコントロールCSS作成 | スタイル定義 | 2時間 | なし |
+| 2.5 | CanvasRenderer変更 | 動的ブロックサイズ対応 | 2時間 | Phase 1完了 |
+| 2.6 | CanvasRendererテスト作成 | 変更部分のテスト | 3時間 | 2.5 |
+| 2.7 | HTML構造更新 | タッチコントロール用コンテナ追加 | 0.5時間 | なし |
+
+**Phase 2 合計**: 16時間（約2日）
+
+#### 11.3.2 完了条件
+
+- ✅ TouchControlRendererが実装され、DOM要素が正しく生成される
+- ✅ タッチイベントが正しくInputCommandに変換される
+- ✅ 視覚フィードバック（activeクラス）が動作する
+- ✅ メモリリーク対策が実装されている
+- ✅ CSSがレスポンシブ対応している
+- ✅ CanvasRendererが動的サイズ変更に対応している
+
+#### 11.3.3 実装順序
+
+```
+Day 4 (8時間):
+  - EventListenerRecord型定義
+  - TouchControlRendererの実装（前半）
+  - タッチコントロールCSS作成
+
+Day 5 (8時間):
+  - TouchControlRendererの実装（後半）
+  - TouchControlRendererのテスト作成
+  - CanvasRendererの変更開始
+```
+
+### 11.4 Phase 3: 統合と動作確認（2日）
+
+#### 11.4.1 タスク一覧
+
+| # | タスク | 説明 | 見積もり | 依存関係 |
+|---|--------|------|---------|---------|
+| 3.1 | GameController変更 | レスポンシブ対応統合 | 4時間 | Phase 1, 2完了 |
+| 3.2 | GameControllerテスト作成 | 統合テスト | 4時間 | 3.1 |
+| 3.3 | main.ts更新 | 依存注入の更新 | 1時間 | 3.1 |
+| 3.4 | タッチ入力フロー統合テスト | E2Eシナリオテスト | 3時間 | 3.1 |
+| 3.5 | レスポンシブレイアウト統合テスト | リサイズテスト | 2時間 | 3.1 |
+| 3.6 | 手動動作確認 | 実機での動作確認 | 2時間 | 3.1-3.5 |
+
+**Phase 3 合計**: 16時間（約2日）
+
+#### 11.4.2 完了条件
+
+- ✅ GameControllerが全機能を統合している
+- ✅ リサイズイベントが正しく処理される
+- ✅ タッチコントロールの表示/非表示が切り替わる
+- ✅ モバイル・デスクトップ両方で動作する
+- ✅ 統合テストが全てパス
+- ✅ 実機（iPhone, Android, デスクトップ）で動作確認済み
+
+#### 11.4.3 動作確認チェックリスト
+
+**モバイル（375x667）**:
+- [ ] タッチコントロールが表示される
+- [ ] 全てのボタンが正しく機能する
+- [ ] Canvasサイズが適切（画面幅の90%程度）
+- [ ] スクロールが発生しない
+- [ ] タップ時の視覚フィードバックが表示される
+
+**タブレット（768x1024）**:
+- [ ] タッチコントロールが非表示
+- [ ] キーボード操作が機能する
+- [ ] Canvasサイズが適切
+
+**デスクトップ（1024x768）**:
+- [ ] タッチコントロールが非表示
+- [ ] キーボード操作が機能する
+- [ ] Canvasサイズが最適
+
+**リサイズ**:
+- [ ] モバイル ↔ デスクトップ間でスムーズに切り替わる
+- [ ] デバウンス処理が機能（連続リサイズでもスムーズ）
+- [ ] ゲーム状態が維持される
+
+### 11.5 Phase 4: テストとリファクタリング（2-3日）
+
+#### 11.5.1 タスク一覧
+
+| # | タスク | 説明 | 見積もり | 依存関係 |
+|---|--------|------|---------|---------|
+| 4.1 | カバレッジ確認と改善 | 目標カバレッジ達成 | 3時間 | Phase 3完了 |
+| 4.2 | パフォーマンス測定 | レスポンス時間測定 | 2時間 | Phase 3完了 |
+| 4.3 | リファクタリング | コード品質改善 | 4時間 | 4.1 |
+| 4.4 | ドキュメント更新 | README、コメント更新 | 2時間 | 4.3 |
+| 4.5 | コードレビュー対応 | レビュー指摘事項対応 | 3時間 | 4.4 |
+| 4.6 | 最終動作確認 | 全環境での確認 | 2時間 | 4.5 |
+
+**Phase 4 合計**: 16時間（約2日）
+
+#### 11.5.2 品質チェックリスト
+
+**コード品質**:
+- [ ] ESLintエラーなし
+- [ ] Prettierフォーマット適用済み
+- [ ] TypeScriptエラーなし
+- [ ] コメント・JSDocが適切
+
+**テスト品質**:
+- [ ] ユニットテストカバレッジ90%以上
+- [ ] 統合テストが主要フロー100%カバー
+- [ ] 全テストがパス
+- [ ] flaky testなし
+
+**パフォーマンス**:
+- [ ] タッチ操作応答時間 < 50ms
+- [ ] リサイズ処理時間 < 100ms
+- [ ] メモリリークなし
+- [ ] FPS 30維持
+
+**ドキュメント**:
+- [ ] READMEに新機能の説明追加
+- [ ] 実装ドキュメント更新
+- [ ] APIドキュメント生成（TypeDoc）
+
+### 11.6 マイルストーン
+
+```mermaid
+gantt
+    title モバイル対応実装スケジュール
+    dateFormat YYYY-MM-DD
+    section Phase 1
+    値オブジェクト実装    :p1-1, 2025-11-07, 1d
+    Application層サービス :p1-2, after p1-1, 2d
+    section Phase 2
+    タッチUI実装          :p2-1, after p1-2, 2d
+    section Phase 3
+    統合と動作確認        :p3-1, after p2-1, 2d
+    section Phase 4
+    テストとリファクタ    :p4-1, after p3-1, 2d
+```
+
+| マイルストーン | 完了予定 | 成果物 |
+|--------------|---------|-------|
+| M1: 基盤整備完了 | Day 3 | 値オブジェクト、Application層サービス |
+| M2: タッチUI完了 | Day 5 | TouchControlRenderer、CSS |
+| M3: 統合完了 | Day 7 | GameController統合、動作確認 |
+| M4: リリース準備完了 | Day 9 | 全テスト、ドキュメント、レビュー対応 |
+
+---
+
+## 12. 移行計画とリスク管理
+
+### 12.1 既存機能への影響評価
+
+#### 12.1.1 影響分析マトリクス
+
+| コンポーネント | 変更内容 | 影響度 | リスク | 対策 |
+|--------------|---------|-------|-------|------|
+| **Domain層** | 変更なし | なし | なし | - |
+| **Infrastructure層** | 変更なし | なし | なし | - |
+| **InputHandlerService** | 拡張 | 低 | 既存キーボード入力の動作変更 | 既存テスト全実行 |
+| **CanvasRenderer** | 変更 | 中 | 描画の不具合 | ビジュアル回帰テスト |
+| **GameController** | 大幅変更 | 高 | 初期化・リサイズの不具合 | 段階的実装、統合テスト |
+| **main.ts** | 依存注入変更 | 中 | 起動時エラー | フォールバック処理 |
+
+#### 12.1.2 後方互換性の保証
+
+**保証項目**:
+1. ✅ 既存のキーボード操作は全て機能する
+2. ✅ デスクトップ環境での操作性は変わらない
+3. ✅ ゲームロジックは一切変更しない
+4. ✅ スコアリング、ブロック生成ロジックは不変
+5. ✅ 既存のテストは全てパスする
+
+**確認方法**:
+```bash
+# 既存テストの実行
+npm run test
+
+# 既存機能の手動確認
+# 1. デスクトップでキーボード操作
+# 2. ゲームの基本動作（移動、回転、落下）
+# 3. スコアリング、レベルアップ
+# 4. ゲームオーバー、リスタート
+```
+
+### 12.2 ロールバック戦略
+
+#### 12.2.1 ロールバック計画
+
+**トリガー条件**:
+- 致命的なバグが発見された
+- パフォーマンスが著しく劣化した
+- 既存機能が動作しない
+
+**ロールバック手順**:
+
+```bash
+# 1. 問題のあるコミットを特定
+git log --oneline
+
+# 2. 前のバージョンにrevert
+git revert <commit-hash>
+
+# 3. ビルドと動作確認
+npm run build
+npm run test
+
+# 4. デプロイ
+git push origin main
+```
+
+#### 12.2.2 機能フラグによる段階的ロールアウト（推奨）
+
+```typescript
+// src/config/features.ts
+export const FEATURES = {
+  MOBILE_RESPONSIVE: process.env.VITE_FEATURE_MOBILE_RESPONSIVE === 'true',
+};
+
+// GameController
+if (FEATURES.MOBILE_RESPONSIVE) {
+  this.setupResponsiveLayout();
+  this.initializeTouchControls();
+}
+```
+
+**メリット**:
+- 本番環境で機能をON/OFFできる
+- 問題発生時に即座に無効化可能
+- A/Bテストが可能
+
+### 12.3 リスク管理
+
+#### 12.3.1 リスク一覧と軽減策
+
+| # | リスク | 発生確率 | 影響度 | 軽減策 | 担当 |
+|---|-------|---------|-------|-------|------|
+| R1 | タッチ操作が反応しない | 中 | 高 | デバイス実機テスト、ポリフィル追加 | 開発者 |
+| R2 | リサイズ時にクラッシュ | 低 | 高 | エラーハンドリング、フォールバック | 開発者 |
+| R3 | メモリリーク発生 | 中 | 中 | イベントリスナー自動管理、テスト | 開発者 |
+| R4 | パフォーマンス劣化 | 低 | 中 | デバウンス、プロファイリング | 開発者 |
+| R5 | ブラウザ互換性問題 | 中 | 中 | クロスブラウザテスト | QA |
+| R6 | 既存機能の破壊 | 低 | 高 | 既存テスト実行、回帰テスト | 開発者 |
+| R7 | CSS競合 | 低 | 低 | BEM命名、スコープ化 | 開発者 |
+
+#### 12.3.2 リスク対応フロー
+
+```
+[リスク検出]
+  ↓
+[影響度評価]
+  ↓ 高
+[即座に対応] → [修正] → [再テスト]
+  ↓ 中
+[計画的対応] → [優先度付け] → [修正] → [テスト]
+  ↓ 低
+[記録] → [将来対応]
+```
+
+### 12.4 デプロイ計画
+
+#### 12.4.1 デプロイ戦略
+
+**推奨**: Blue-Green Deployment
+
+```
+[Blue環境: 旧バージョン]
+  ↓
+[Green環境: 新バージョン] → テスト
+  ↓ OK
+[トラフィック切替: Green] → モニタリング
+  ↓ 問題なし
+[Blue環境削除]
+  ↓ 問題あり
+[ロールバック: Blue]
+```
+
+#### 12.4.2 デプロイチェックリスト
+
+**デプロイ前**:
+- [ ] 全テストがパス（ユニット、統合）
+- [ ] カバレッジ目標達成
+- [ ] ビルドエラーなし
+- [ ] ESLintエラーなし
+- [ ] 手動動作確認完了（3環境以上）
+- [ ] ドキュメント更新完了
+- [ ] コードレビュー承認済み
+
+**デプロイ時**:
+- [ ] バックアップ作成
+- [ ] デプロイスクリプト実行
+- [ ] ヘルスチェック確認
+- [ ] 基本動作確認
+
+**デプロイ後**:
+- [ ] モニタリング開始（24時間）
+- [ ] エラーログ確認
+- [ ] ユーザーフィードバック確認
+- [ ] パフォーマンスメトリクス確認
+
+#### 12.4.3 モニタリング項目
+
+```typescript
+// モニタリング対象
+const METRICS = {
+  // エラー率
+  errorRate: 'application_errors_total / requests_total',
+  
+  // レスポンス時間
+  touchResponseTime: 'p95(touch_input_duration_ms)',
+  resizeResponseTime: 'p95(resize_duration_ms)',
+  
+  // メモリ使用量
+  memoryUsage: 'process_memory_bytes',
+  
+  // FPS
+  fps: 'avg(game_fps)',
+};
+```
+
+### 12.5 成功基準
+
+#### 12.5.1 技術的成功基準
+
+- ✅ 全テストがパス（カバレッジ90%以上）
+- ✅ タッチ操作応答時間 < 50ms
+- ✅ リサイズ処理時間 < 100ms
+- ✅ メモリリークなし（24時間稼働）
+- ✅ FPS 30維持
+- ✅ 既存機能の破壊なし
+
+#### 12.5.2 ユーザー体験の成功基準
+
+- ✅ モバイルでスムーズに操作できる
+- ✅ タッチフィードバックが即座に表示される
+- ✅ リサイズ時にゲームが継続する
+- ✅ 全主要ブラウザで動作する（Chrome, Safari, Firefox, Edge）
+- ✅ ユーザーからの重大なバグ報告なし
+
+#### 12.5.3 ビジネス的成功基準
+
+- ✅ モバイルユーザーのプレイ時間増加
+- ✅ モバイルユーザーの離脱率低下
+- ✅ クロスデバイスでの利用増加
+
+---
+
+## 13. 付録
+
+### 13.1 用語集
+
+| 用語 | 説明 |
+|------|------|
+| **ビューポート** | ブラウザの表示領域のサイズ |
+| **ブレークポイント** | レイアウトが切り替わる画面幅の閾値（768px） |
+| **タッチコマンド** | タッチ操作から生成される操作指示 |
+| **動的スケーリング** | 画面サイズに応じてCanvasとブロックサイズを調整する処理 |
+| **デバウンス** | 連続したイベントをまとめて処理する最適化手法 |
+| **クールダウン** | 連続入力を防ぐための待機時間 |
+| **メモリリーク** | 使用されなくなったメモリが解放されない問題 |
+
+### 13.2 参考資料
+
+- **DDD仕様書**: `docs/design/mobile-responsive-ddd-specification.md` (v1.1)
+- **TypeScript公式ドキュメント**: https://www.typescriptlang.org/docs/
+- **Vitest公式ドキュメント**: https://vitest.dev/
+- **MDN - Touch events**: https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
+- **MDN - ResizeObserver**: https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver
+
+### 13.3 変更履歴
+
+| バージョン | 日付 | 変更内容 | 作成者 |
+|-----------|------|---------|-------|
+| 1.0 | 2025-11-06 | 初版作成（Part 1-3完成） | Claude |
+
+---
+
+## 14. まとめ
+
+### 14.1 ドキュメント概要
+
+本詳細設計書は、DDD仕様書v1.1をもとに、**実装者が迷わず実装できるレベル**の詳細度で作成されました。
+
+**総ページ数**: 約6,300行  
+**総テストケース**: 68個  
+**実装見積もり**: 9-12日
+
+### 14.2 実装の準備状況
+
+✅ **完全に準備完了**
+
+- 全コンポーネントのTypeScript完全定義
+- 全アルゴリズムの疑似コード
+- 68個のテストケース（Vitest形式）
+- CSS完全定義（約150行）
+- 実装手順の詳細化
+- エラーハンドリング戦略
+- パフォーマンス最適化指針
+- リスク管理計画
+
+### 14.3 次のステップ
+
+1. **Phase 1開始**: 値オブジェクトとApplication層サービスの実装
+2. **継続的なテスト**: 実装と並行してテストを作成
+3. **コードレビュー**: 各Phaseごとにレビュー実施
+4. **段階的デプロイ**: 機能フラグによる段階的ロールアウト
+
+### 14.4 重要な設計判断
+
+1. **Domain層は変更しない** - ビジネスロジックの純粋性を維持
+2. **レイアウト計算はApplication層** - ビジネスルールとして扱う
+3. **クールダウン管理はApplication層** - ゲームバランスのルール
+4. **エラーハンドリングを徹底** - ユーザー体験を損なわない
+5. **メモリリーク対策** - イベントリスナーの自動管理
+6. **パフォーマンス重視** - デバウンス、不要な再描画防止
+
+### 14.5 期待される成果
+
+- ✅ モバイルユーザーがスムーズにゲームをプレイできる
+- ✅ タッチ操作が直感的で反応が速い
+- ✅ リサイズ時に動的にレイアウトが調整される
+- ✅ 既存のデスクトップ体験は維持される
+- ✅ コードの保守性・拡張性が向上する
+- ✅ テストカバレッジが高く、品質が保証される
+
+---
+
+**詳細設計書（全3パート）完成！**
+
+これで実装者は即座に実装を開始できるのだ！
+
+---
+
+**作成日**: 2025-11-06  
+**最終更新**: 2025-11-06  
+**バージョン**: 1.0  
+**作成者**: Claude (Sonnet 4.5)
