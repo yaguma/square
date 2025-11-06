@@ -197,7 +197,7 @@ export class TouchControlRenderer {
       };
 
       // touchcancel: タッチキャンセル時
-      const handleTouchCancel = (e: TouchEvent) => {
+      const handleTouchCancel = (_e: TouchEvent) => {
         button.classList.remove('active'); // キャンセル時も解除
       };
 
