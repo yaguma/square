@@ -301,6 +301,10 @@ export class Game {
     // 2. 落下ブロックを削除
     this._fallingBlock = null;
 
+    // 2.5. 着地後の重力適用（浮いているブロックを落とす）- 不具合1の修正
+    const blockFallService = new BlockFallService();
+    blockFallService.applyGravity(this._field);
+
     // 3. 消去処理（連鎖を含む）- コンストラクタで初期化済みのサービスを使用
     const removedCount = this.blockRemovalService.processRemovalChain(this._field);
 

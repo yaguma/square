@@ -4,6 +4,7 @@ import { Game } from '@domain/models/entities/Game';
 import { Field } from '@domain/models/entities/Field';
 import { FallingBlock } from '@domain/models/entities/FallingBlock';
 import { BlockPattern } from '@domain/models/value-objects/BlockPattern';
+import { Block } from '@domain/models/value-objects/Block';
 import { Position } from '@domain/models/value-objects/Position';
 
 /**
@@ -141,12 +142,13 @@ export class GameApplicationService {
     fallingBlock: FallingBlock
   ): NonNullable<GameDto['fallingBlock']> {
     return {
-      pattern: this.convertBlockPatternToDto(fallingBlock.pattern),
+      // 回転を適用したパターンを使用（不具合2の修正）
+      pattern: this.convertRotatedBlocksToDto(fallingBlock.rotatedBlocks),
       position: {
         x: fallingBlock.position.x,
         y: fallingBlock.position.y
       },
-      rotation: fallingBlock.rotation
+      rotation: fallingBlock.rotation // 互換性のため残す
     };
   }
 
@@ -158,6 +160,29 @@ export class GameApplicationService {
       result[y] = [];
       for (let x = 0; x < BLOCK_PATTERN_SIZE; x++) {
         result[y][x] = blocks[y][x] ? blocks[y][x].color.type : 'empty';
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * 回転適用済みのブロック配列をDTO用の文字列配列に変換
+   *
+   * @param blocks - 回転適用済みの2x2ブロック配列
+   * @returns 色タイプまたは'empty'の2x2文字列配列
+   *
+   * @remarks
+   * BlockPattern.rotate() が返す (Block | null)[][] を
+   * 描画用の string[][] に変換します。
+   */
+  private convertRotatedBlocksToDto(blocks: (Block | null)[][]): string[][] {
+    const result: string[][] = [];
+
+    for (let y = 0; y < BLOCK_PATTERN_SIZE; y++) {
+      result[y] = [];
+      for (let x = 0; x < BLOCK_PATTERN_SIZE; x++) {
+        result[y][x] = blocks[y][x] ? blocks[y][x]!.color.type : 'empty';
       }
     }
 
