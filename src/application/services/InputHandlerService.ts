@@ -118,6 +118,25 @@ export class InputHandlerService {
   }
 
   /**
+   * 統一的な入力リリース処理メソッド
+   *
+   * @remarks
+   * タッチ入力やキーボード入力のリリースイベントで使用される
+   *
+   * @param command - 入力コマンド
+   * @param gameId - ゲームID
+   */
+  handleInputRelease(command: InputCommand, gameId: string): void {
+    try {
+      // コマンドに応じてリリース処理を実行
+      this.executeReleaseCommand(command, gameId);
+    } catch (error) {
+      console.error(`Failed to handle input release for command ${command}:`, error);
+      // エラーでもゲームを継続
+    }
+  }
+
+  /**
    * InputCommandに応じたゲーム操作を実行
    *
    * @param command - 入力コマンド
@@ -157,6 +176,24 @@ export class InputHandlerService {
         break;
       default:
         console.warn(`Unknown input command: ${command}`);
+    }
+  }
+
+  /**
+   * InputCommandに応じたリリース処理を実行
+   *
+   * @param command - 入力コマンド
+   * @param gameId - ゲームID
+   */
+  private executeReleaseCommand(command: InputCommand, gameId: string): void {
+    switch (command) {
+      case InputCommand.MOVE_DOWN:
+        // 高速落下を解除
+        this.gameApplicationService.disableFastFall(gameId);
+        break;
+      // 他のコマンドはリリース処理不要
+      default:
+        break;
     }
   }
 

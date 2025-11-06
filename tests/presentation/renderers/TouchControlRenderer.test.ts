@@ -21,6 +21,7 @@ describe('TouchControlRenderer', () => {
     // モックInputHandlerServiceを作成
     mockInputHandler = {
       handleInput: vi.fn(),
+      handleInputRelease: vi.fn(),
     } as any;
 
     renderer = new TouchControlRenderer(container, mockInputHandler, gameId);
