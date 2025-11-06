@@ -101,6 +101,10 @@
     - 一時停止/再開
     - リスタート
   - `InputHandlerService`: ユーザー入力処理
+  - `RankingService`: ランキング管理
+    - スコアの保存
+    - ランキング取得
+    - ランキングクリア
 
 - **DTOs** (`dto/`): データ転送オブジェクト
   - `GameDto`: ゲーム状態の外部表現
@@ -114,6 +118,7 @@
 **コンポーネント**:
 - **Repositories** (`repositories/`):
   - `InMemoryGameRepository`: ゲームのインメモリ保存
+  - `LocalStorageRankingRepository`: ランキングのローカルストレージ保存
 
 - **Random** (`random/`):
   - `RandomGenerator`: 乱数生成（テスト可能）
@@ -134,6 +139,8 @@
 - **Renderers** (`renderers/`):
   - `CanvasRenderer`: Canvas描画
   - `UIRenderer`: UI要素の更新
+  - `TouchControlRenderer`: タッチコントロール描画（モバイル対応）
+  - `RankingDialogRenderer`: ランキングダイアログ描画
 
 ---
 
