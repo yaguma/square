@@ -164,3 +164,199 @@ kbd {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   margin: 0 3px;
 }
+
+/* ========================================
+   タッチコントロール
+   ======================================== */
+
+.touch-controls {
+  display: none; /* デフォルトは非表示 */
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background-color: #34495e;
+  border-radius: 8px;
+  margin-top: 16px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* モバイル表示時 */
+@media (max-width: 767px) {
+  .touch-controls {
+    max-width: 100%;
+  }
+}
+
+/* 回転ボタンコンテナ */
+.rotation-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* 方向ボタンコンテナ */
+.direction-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* 即落下ボタンコンテナ */
+.drop-button {
+  display: flex;
+  justify-content: center;
+}
+
+/* タッチボタン共通スタイル */
+.touch-btn {
+  min-width: 60px;
+  min-height: 60px;
+  padding: 12px;
+  font-size: 24px;
+  font-weight: bold;
+  background-color: #2c3e50;
+  color: #ecf0f1;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.1s ease;
+  -webkit-tap-highlight-color: transparent; /* iOSのタップハイライト無効化 */
+}
+
+/* ホバー時 */
+.touch-btn:hover {
+  background-color: #34495e;
+  border-color: #5dade2;
+}
+
+/* アクティブ時（タッチ中） */
+.touch-btn.active {
+  background-color: #3498db;
+  border-color: #2980b9;
+  transform: scale(0.95);
+}
+
+/* フォーカス時 */
+.touch-btn:focus {
+  outline: 2px solid #5dade2;
+  outline-offset: 2px;
+}
+
+/* 無効時 */
+.touch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 即落下ボタン（大きめ） */
+.drop-button .touch-btn {
+  min-width: 120px;
+  font-size: 18px;
+}
+
+/* モバイル向け最適化 */
+@media (max-width: 767px) {
+  .touch-btn {
+    min-width: 70px;
+    min-height: 70px;
+    font-size: 28px;
+  }
+
+  .drop-button .touch-btn {
+    min-width: 140px;
+    font-size: 20px;
+  }
+}
+
+/* 小さい画面向け（iPhone SE等） */
+@media (max-width: 374px) {
+  .touch-btn {
+    min-width: 60px;
+    min-height: 60px;
+    font-size: 24px;
+  }
+
+  .drop-button .touch-btn {
+    min-width: 120px;
+    font-size: 18px;
+  }
+
+  .touch-controls {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .rotation-buttons,
+  .direction-buttons {
+    gap: 8px;
+  }
+}
+
+/* アクセシビリティ: プリファー・レデューサード・モーション */
+@media (prefers-reduced-motion: reduce) {
+  .touch-btn {
+    transition: none;
+  }
+
+  .touch-btn.active {
+    transform: none;
+  }
+}
+
+/* ダークモード対応（将来的な拡張） */
+@media (prefers-color-scheme: dark) {
+  .touch-controls {
+    background-color: #1a1a1a;
+  }
+
+  .touch-btn {
+    background-color: #2c2c2c;
+    color: #ffffff;
+    border-color: #4a9eff;
+  }
+
+  .touch-btn:hover {
+    background-color: #3c3c3c;
+    border-color: #6db3ff;
+  }
+
+  .touch-btn.active {
+    background-color: #4a9eff;
+    border-color: #3a8eef;
+  }
+}
+
+/* ========================================
+   Canvas レスポンシブ対応
+   ======================================== */
+
+#game-canvas {
+  display: block;
+  margin: 0 auto;
+  /* サイズはJavaScriptで動的に設定 */
+}
+
+/* Canvas コンテナ */
+.canvas-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  min-height: 400px;
+}
+
+/* モバイル表示時 */
+@media (max-width: 767px) {
+  .canvas-container {
+    padding: 8px;
+    min-height: 300px;
+  }
+
+  #game-canvas {
+    max-width: 90vw;
+    height: auto;
+  }
+}
