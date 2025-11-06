@@ -3,9 +3,12 @@ import { GameController } from '@presentation/controllers/GameController';
 import { GameApplicationService } from '@application/services/GameApplicationService';
 import { InputHandlerService } from '@application/services/InputHandlerService';
 import { LayoutCalculationService } from '@application/services/LayoutCalculationService';
+import { RankingService } from '@application/services/RankingService';
 import { CanvasRenderer } from '@presentation/renderers/CanvasRenderer';
 import { UIRenderer } from '@presentation/renderers/UIRenderer';
+import { RankingDialogRenderer } from '@presentation/renderers/RankingDialogRenderer';
 import { InMemoryGameRepository } from '@infrastructure/repositories/InMemoryGameRepository';
+import { LocalStorageRankingRepository } from '@infrastructure/repositories/LocalStorageRankingRepository';
 import { ViewportSize } from '@application/value-objects/ViewportSize';
 
 describe('Mobile Integration Tests', () => {
@@ -72,20 +75,36 @@ describe('Mobile Integration Tests', () => {
     gameOverElement.id = 'game-over';
     document.body.appendChild(gameOverElement);
 
+    // Ranking dialog 要素を作成
+    const rankingDialog = document.createElement('div');
+    rankingDialog.id = 'ranking-dialog';
+    const rankingList = document.createElement('div');
+    rankingList.id = 'ranking-list';
+    rankingDialog.appendChild(rankingList);
+    const rankingCloseBtn = document.createElement('button');
+    rankingCloseBtn.id = 'ranking-close-btn';
+    rankingDialog.appendChild(rankingCloseBtn);
+    document.body.appendChild(rankingDialog);
+
     // 依存関係を組み立て
     const gameRepository = new InMemoryGameRepository();
+    const rankingRepository = new LocalStorageRankingRepository();
     const gameApplicationService = new GameApplicationService(gameRepository);
     const inputHandlerService = new InputHandlerService(gameApplicationService);
     const layoutCalculationService = new LayoutCalculationService();
+    const rankingService = new RankingService(rankingRepository);
 
     const canvasRenderer = new CanvasRenderer(canvas, 30);
     const uiRenderer = new UIRenderer();
+    const rankingDialogRenderer = new RankingDialogRenderer();
 
     gameController = new GameController(
       gameApplicationService,
       inputHandlerService,
       canvasRenderer,
       uiRenderer,
+      rankingService,
+      rankingDialogRenderer,
       touchControlsContainer,
       layoutCalculationService
     );

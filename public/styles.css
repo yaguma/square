@@ -442,3 +442,118 @@ kbd {
     display: none !important; /* デスクトップでは常に非表示 */
   }
 }
+
+/* ========================================
+   ランキングダイアログ
+   ======================================== */
+
+.dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog.hidden {
+  display: none;
+}
+
+.dialog-content {
+  background-color: #2c3e50;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.dialog-content h2 {
+  font-size: 28px;
+  margin-bottom: 20px;
+  color: #3498db;
+  text-align: center;
+}
+
+.ranking-list {
+  margin-bottom: 20px;
+}
+
+.ranking-item {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  gap: 15px;
+  padding: 12px;
+  background-color: #34495e;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.ranking-rank {
+  font-size: 18px;
+  font-weight: bold;
+  color: #f1c40f;
+}
+
+.ranking-score {
+  font-size: 24px;
+  font-weight: bold;
+  color: #ecf0f1;
+  text-align: left;
+}
+
+.ranking-date {
+  font-size: 12px;
+  color: #95a5a6;
+  text-align: right;
+}
+
+.ranking-empty {
+  text-align: center;
+  color: #95a5a6;
+  padding: 20px;
+  font-size: 16px;
+}
+
+#ranking-close-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* モバイル向け最適化 */
+@media (max-width: 767px) {
+  .dialog-content {
+    padding: 20px;
+    width: 95%;
+  }
+
+  .dialog-content h2 {
+    font-size: 24px;
+  }
+
+  .ranking-item {
+    grid-template-columns: 50px 1fr auto;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .ranking-rank {
+    font-size: 16px;
+  }
+
+  .ranking-score {
+    font-size: 20px;
+  }
+
+  .ranking-date {
+    font-size: 10px;
+  }
+}

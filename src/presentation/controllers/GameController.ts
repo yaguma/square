@@ -1,9 +1,11 @@
 import { GameApplicationService } from '@application/services/GameApplicationService';
 import { InputHandlerService } from '@application/services/InputHandlerService';
 import { LayoutCalculationService } from '@application/services/LayoutCalculationService';
+import { RankingService } from '@application/services/RankingService';
 import { CanvasRenderer } from '@presentation/renderers/CanvasRenderer';
 import { UIRenderer } from '@presentation/renderers/UIRenderer';
 import { TouchControlRenderer } from '@presentation/renderers/TouchControlRenderer';
+import { RankingDialogRenderer } from '@presentation/renderers/RankingDialogRenderer';
 import { FrameTimer } from '@infrastructure/timer/FrameTimer';
 import { GameDto } from '@application/dto/GameDto';
 import { ViewportSize } from '@application/value-objects/ViewportSize';
@@ -17,6 +19,7 @@ export class GameController {
   private frameTimer: FrameTimer;
   private currentGameId: string | null = null;
   private touchControlRenderer: TouchControlRenderer | null = null;
+  private lastGameState: 'playing' | 'paused' | 'gameOver' | null = null;
 
   // イベントハンドラーを保持（削除時に必要）
   private keydownHandler?: (event: KeyboardEvent) => void;
@@ -24,12 +27,15 @@ export class GameController {
   private pauseBtnHandler?: () => void;
   private resetBtnHandler?: () => void;
   private restartBtnHandler?: () => void;
+  private rankingBtnHandler?: () => void;
 
   constructor(
     private gameApplicationService: GameApplicationService,
     private inputHandlerService: InputHandlerService,
     private canvasRenderer: CanvasRenderer,
     private uiRenderer: UIRenderer,
+    private rankingService: RankingService,
+    private rankingDialogRenderer: RankingDialogRenderer,
     private touchControlsContainer: HTMLElement | null = null,
     private layoutCalculationService: LayoutCalculationService | null = null
   ) {
@@ -142,9 +148,15 @@ export class GameController {
       this.gameApplicationService.restartGame(this.currentGameId);
     };
 
+    this.rankingBtnHandler = () => {
+      const ranking = this.rankingService.getRanking();
+      this.rankingDialogRenderer.show(ranking);
+    };
+
     const pauseBtn = document.getElementById('pause-btn');
     const resetBtn = document.getElementById('reset-btn');
     const restartBtn = document.getElementById('restart-btn');
+    const rankingBtn = document.getElementById('ranking-btn');
 
     if (pauseBtn) {
       pauseBtn.addEventListener('click', this.pauseBtnHandler);
@@ -156,6 +168,10 @@ export class GameController {
 
     if (restartBtn) {
       restartBtn.addEventListener('click', this.restartBtnHandler);
+    }
+
+    if (rankingBtn) {
+      rankingBtn.addEventListener('click', this.rankingBtnHandler);
     }
   }
 
@@ -178,6 +194,7 @@ export class GameController {
     const pauseBtn = document.getElementById('pause-btn');
     const resetBtn = document.getElementById('reset-btn');
     const restartBtn = document.getElementById('restart-btn');
+    const rankingBtn = document.getElementById('ranking-btn');
 
     if (pauseBtn && this.pauseBtnHandler) {
       pauseBtn.removeEventListener('click', this.pauseBtnHandler);
@@ -193,6 +210,11 @@ export class GameController {
       restartBtn.removeEventListener('click', this.restartBtnHandler);
       this.restartBtnHandler = undefined;
     }
+
+    if (rankingBtn && this.rankingBtnHandler) {
+      rankingBtn.removeEventListener('click', this.rankingBtnHandler);
+      this.rankingBtnHandler = undefined;
+    }
   }
 
   /**
@@ -206,6 +228,14 @@ export class GameController {
       const gameDto = this.gameApplicationService.updateFrame(
         this.currentGameId
       );
+
+      // ゲームオーバーになった瞬間を検知してランキングに保存
+      if (gameDto.state === 'gameOver' && this.lastGameState !== 'gameOver') {
+        this.rankingService.addScore(gameDto.score);
+      }
+
+      // 状態を更新
+      this.lastGameState = gameDto.state;
 
       // 描画
       this.render(gameDto);

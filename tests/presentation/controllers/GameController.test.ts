@@ -2,21 +2,27 @@ import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 import { GameController } from '@presentation/controllers/GameController';
 import { GameApplicationService } from '@application/services/GameApplicationService';
 import { InputHandlerService } from '@application/services/InputHandlerService';
+import { RankingService } from '@application/services/RankingService';
 import { CanvasRenderer } from '@presentation/renderers/CanvasRenderer';
 import { UIRenderer } from '@presentation/renderers/UIRenderer';
+import { RankingDialogRenderer } from '@presentation/renderers/RankingDialogRenderer';
 import { InMemoryGameRepository } from '@infrastructure/repositories/InMemoryGameRepository';
+import { LocalStorageRankingRepository } from '@infrastructure/repositories/LocalStorageRankingRepository';
 
 describe('GameController', () => {
   let controller: GameController;
   let gameApplicationService: GameApplicationService;
   let inputHandlerService: InputHandlerService;
+  let rankingService: RankingService;
   let canvasRenderer: CanvasRenderer;
   let uiRenderer: UIRenderer;
+  let rankingDialogRenderer: RankingDialogRenderer;
 
   // DOM要素をモック
   let pauseBtn: HTMLButtonElement;
   let resetBtn: HTMLButtonElement;
   let restartBtn: HTMLButtonElement;
+  let rankingBtn: HTMLButtonElement;
   let canvas: HTMLCanvasElement;
 
   beforeEach(() => {
@@ -32,6 +38,10 @@ describe('GameController', () => {
     restartBtn = document.createElement('button');
     restartBtn.id = 'restart-btn';
     document.body.appendChild(restartBtn);
+
+    rankingBtn = document.createElement('button');
+    rankingBtn.id = 'ranking-btn';
+    document.body.appendChild(rankingBtn);
 
     // Canvas要素を作成
     canvas = document.createElement('canvas');
@@ -75,19 +85,35 @@ describe('GameController', () => {
     gameOverElement.id = 'game-over';
     document.body.appendChild(gameOverElement);
 
+    // Ranking dialog 要素を作成
+    const rankingDialog = document.createElement('div');
+    rankingDialog.id = 'ranking-dialog';
+    const rankingList = document.createElement('div');
+    rankingList.id = 'ranking-list';
+    rankingDialog.appendChild(rankingList);
+    const rankingCloseBtn = document.createElement('button');
+    rankingCloseBtn.id = 'ranking-close-btn';
+    rankingDialog.appendChild(rankingCloseBtn);
+    document.body.appendChild(rankingDialog);
+
     // 依存関係を作成
     const repository = new InMemoryGameRepository();
+    const rankingRepository = new LocalStorageRankingRepository();
     gameApplicationService = new GameApplicationService(repository);
     inputHandlerService = new InputHandlerService(gameApplicationService);
+    rankingService = new RankingService(rankingRepository);
     canvasRenderer = new CanvasRenderer(canvas);
     uiRenderer = new UIRenderer();
+    rankingDialogRenderer = new RankingDialogRenderer();
 
     // GameControllerを作成
     controller = new GameController(
       gameApplicationService,
       inputHandlerService,
       canvasRenderer,
-      uiRenderer
+      uiRenderer,
+      rankingService,
+      rankingDialogRenderer
     );
   });
 
