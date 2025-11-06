@@ -17,6 +17,35 @@ describe('Mobile Integration Tests', () => {
     // DOM要素を作成
     canvas = document.createElement('canvas');
     canvas.id = 'game-canvas';
+
+    // Canvas context をモック（jsdom では完全にサポートされていないため）
+    const mockContext = {
+      fillStyle: '',
+      fillRect: vi.fn(),
+      clearRect: vi.fn(),
+      strokeRect: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      fill: vi.fn(),
+      arc: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      scale: vi.fn(),
+      drawImage: vi.fn(),
+      createLinearGradient: vi.fn(),
+      createRadialGradient: vi.fn(),
+      createPattern: vi.fn(),
+      getImageData: vi.fn(),
+      putImageData: vi.fn(),
+      canvas: canvas,
+    };
+
+    vi.spyOn(canvas, 'getContext').mockReturnValue(mockContext as any);
+
     document.body.appendChild(canvas);
 
     touchControlsContainer = document.createElement('div');
@@ -27,6 +56,21 @@ describe('Mobile Integration Tests', () => {
     const scoreElement = document.createElement('div');
     scoreElement.id = 'score';
     document.body.appendChild(scoreElement);
+
+    // Next canvas を作成
+    const nextCanvas = document.createElement('canvas');
+    nextCanvas.id = 'next-canvas';
+    nextCanvas.width = 120;
+    nextCanvas.height = 120;
+
+    // Next canvas の context もモック
+    vi.spyOn(nextCanvas, 'getContext').mockReturnValue(mockContext as any);
+    document.body.appendChild(nextCanvas);
+
+    // Game over 要素を作成
+    const gameOverElement = document.createElement('div');
+    gameOverElement.id = 'game-over';
+    document.body.appendChild(gameOverElement);
 
     // 依存関係を組み立て
     const gameRepository = new InMemoryGameRepository();
@@ -48,7 +92,9 @@ describe('Mobile Integration Tests', () => {
   });
 
   afterEach(() => {
-    gameController.stop();
+    if (gameController) {
+      gameController.stop();
+    }
     document.body.innerHTML = '';
   });
 
@@ -93,8 +139,8 @@ describe('Mobile Integration Tests', () => {
       const touchControls = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
       expect(touchControls).not.toBeNull();
 
-      // デスクトップではhide()が呼ばれる
-      expect(touchControls.style.display).toBe('none');
+      // デスクトップではhide()が呼ばれる（containerのdisplayが'none'になる）
+      expect(touchControlsContainer.style.display).toBe('none');
     });
   });
 
@@ -119,15 +165,15 @@ describe('Mobile Integration Tests', () => {
       const mobileViewport = ViewportSize.create(375, 667);
       gameController.handleResize(mobileViewport);
 
-      let touchControls = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
-      expect(touchControls.style.display).not.toBe('none');
+      const touchControls = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
+      expect(touchControls).not.toBeNull();
+      expect(touchControlsContainer.style.display).not.toBe('none');
 
       // デスクトップサイズにリサイズ
       const desktopViewport = ViewportSize.create(1024, 768);
       gameController.handleResize(desktopViewport);
 
-      touchControls = touchControlsContainer.querySelector('.touch-controls') as HTMLElement;
-      expect(touchControls.style.display).toBe('none');
+      expect(touchControlsContainer.style.display).toBe('none');
     });
   });
 
