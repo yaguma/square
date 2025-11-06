@@ -196,11 +196,15 @@ export class TouchControlRenderer {
       const handleTouchEnd = (e: TouchEvent) => {
         e.preventDefault();
         button.classList.remove('active'); // 視覚フィードバック解除
+        // ボタンを離したときの処理
+        this.handleTouchInputRelease(action);
       };
 
       // touchcancel: タッチキャンセル時
       const handleTouchCancel = (_e: TouchEvent) => {
         button.classList.remove('active'); // キャンセル時も解除
+        // キャンセル時もリリース処理を実行
+        this.handleTouchInputRelease(action);
       };
 
       // マウスイベントもサポート（デバッグ用）
@@ -213,6 +217,8 @@ export class TouchControlRenderer {
       const handleMouseUp = (e: MouseEvent) => {
         e.preventDefault();
         button.classList.remove('active');
+        // マウスを離したときの処理
+        this.handleTouchInputRelease(action);
       };
 
       // イベントリスナーを登録（メモリリーク対策付き）
@@ -235,6 +241,21 @@ export class TouchControlRenderer {
       this.inputHandlerService.handleInput(command, this.gameId);
     } catch (error) {
       console.error(`Failed to handle touch input for ${action}:`, error);
+      // エラーでもゲームを継続（入力だけ無視）
+    }
+  }
+
+  /**
+   * タッチ操作のリリースをInputCommandに変換してInputHandlerServiceに送信
+   *
+   * @param action - data-action属性の値
+   */
+  private handleTouchInputRelease(action: string): void {
+    try {
+      const command = this.convertToInputCommand(action);
+      this.inputHandlerService.handleInputRelease(command, this.gameId);
+    } catch (error) {
+      console.error(`Failed to handle touch input release for ${action}:`, error);
       // エラーでもゲームを継続（入力だけ無視）
     }
   }
