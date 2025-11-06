@@ -37,10 +37,20 @@
         <div class="controls">
           <button id="pause-btn" class="btn">一時停止</button>
           <button id="reset-btn" class="btn">リセット</button>
+          <button id="ranking-btn" class="btn">ランキング</button>
         </div>
 
         <!-- タッチコントロール用コンテナ -->
         <div id="touch-controls-container"></div>
+      </div>
+
+      <!-- ランキングダイアログ -->
+      <div id="ranking-dialog" class="dialog hidden">
+        <div class="dialog-content">
+          <h2>ランキング</h2>
+          <div id="ranking-list" class="ranking-list"></div>
+          <button id="ranking-close-btn" class="btn btn-primary">閉じる</button>
+        </div>
       </div>
 
       <div class="instructions">

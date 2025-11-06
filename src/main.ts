@@ -1,9 +1,12 @@
 import { InMemoryGameRepository } from '@infrastructure/repositories/InMemoryGameRepository';
+import { LocalStorageRankingRepository } from '@infrastructure/repositories/LocalStorageRankingRepository';
 import { GameApplicationService } from '@application/services/GameApplicationService';
 import { InputHandlerService } from '@application/services/InputHandlerService';
 import { LayoutCalculationService } from '@application/services/LayoutCalculationService';
+import { RankingService } from '@application/services/RankingService';
 import { CanvasRenderer } from '@presentation/renderers/CanvasRenderer';
 import { UIRenderer } from '@presentation/renderers/UIRenderer';
+import { RankingDialogRenderer } from '@presentation/renderers/RankingDialogRenderer';
 import { GameController } from '@presentation/controllers/GameController';
 import { ViewportSize } from '@application/value-objects/ViewportSize';
 
@@ -51,9 +54,11 @@ function main() {
 
   // 依存関係の組み立て
   const gameRepository = new InMemoryGameRepository();
+  const rankingRepository = new LocalStorageRankingRepository();
   const gameApplicationService = new GameApplicationService(gameRepository);
   const inputHandlerService = new InputHandlerService(gameApplicationService);
   const layoutCalculationService = new LayoutCalculationService();
+  const rankingService = new RankingService(rankingRepository);
 
   // 初期ビューポートサイズを取得
   const initialViewport = getCurrentViewportSize();
@@ -69,6 +74,7 @@ function main() {
   // レンダラーの作成
   const canvasRenderer = new CanvasRenderer(canvas, blockSize.size);
   const uiRenderer = new UIRenderer();
+  const rankingDialogRenderer = new RankingDialogRenderer();
 
   // ゲームコントローラーの作成
   const gameController = new GameController(
@@ -76,6 +82,8 @@ function main() {
     inputHandlerService,
     canvasRenderer,
     uiRenderer,
+    rankingService,
+    rankingDialogRenderer,
     touchControlsContainer,
     layoutCalculationService
   );
