@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background -->
+  <rect width="100" height="100" fill="#2c3e50"/>
+
+  <!-- 2x2 Blocks with border -->
+  <!-- Top Left - Blue -->
+  <rect x="10" y="10" width="35" height="35" fill="#3498db" stroke="#2c3e50" stroke-width="2"/>
+
+  <!-- Top Right - Red -->
+  <rect x="55" y="10" width="35" height="35" fill="#e74c3c" stroke="#2c3e50" stroke-width="2"/>
+
+  <!-- Bottom Left - Yellow -->
+  <rect x="10" y="55" width="35" height="35" fill="#f1c40f" stroke="#2c3e50" stroke-width="2"/>
+
+  <!-- Bottom Right - Blue -->
+  <rect x="55" y="55" width="35" height="35" fill="#3498db" stroke="#2c3e50" stroke-width="2"/>
+</svg>
