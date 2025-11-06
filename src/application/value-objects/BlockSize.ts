@@ -15,14 +15,14 @@ import { CanvasSize } from './CanvasSize';
  *
  * 制約:
  * - デスクトップ: 20px〜40px
- * - モバイル: 15px〜30px
- * - 全般の最小: 15px、最大: 40px
+ * - モバイル: 12px〜25px
+ * - 全般の最小: 12px、最大: 40px
  */
 export class BlockSize {
   /**
    * ブロックサイズの絶対最小値（ピクセル）
    */
-  private static readonly ABSOLUTE_MIN_SIZE = 15;
+  private static readonly ABSOLUTE_MIN_SIZE = 12;
 
   /**
    * ブロックサイズの絶対最大値（ピクセル）
@@ -32,12 +32,12 @@ export class BlockSize {
   /**
    * モバイル用の最小ブロックサイズ（ピクセル）
    */
-  private static readonly MOBILE_MIN_SIZE = 15;
+  private static readonly MOBILE_MIN_SIZE = 12;
 
   /**
    * モバイル用の最大ブロックサイズ（ピクセル）
    */
-  private static readonly MOBILE_MAX_SIZE = 30;
+  private static readonly MOBILE_MAX_SIZE = 25;
 
   /**
    * デスクトップ用の最小ブロックサイズ（ピクセル）
@@ -54,7 +54,7 @@ export class BlockSize {
   /**
    * BlockSizeインスタンスを生成
    *
-   * @param size - ブロックサイズ（ピクセル、15〜40の整数）
+   * @param size - ブロックサイズ（ピクセル、12〜40の整数）
    * @returns BlockSize
    * @throws sizeが整数でない場合、または有効範囲外の場合
    */
@@ -105,7 +105,7 @@ export class BlockSize {
   /**
    * モバイル用の有効な範囲内かを判定
    *
-   * @returns モバイルの推奨範囲（15〜30px）内の場合true
+   * @returns モバイルの推奨範囲（12〜25px）内の場合true
    */
   isValidForMobile(): boolean {
     return (

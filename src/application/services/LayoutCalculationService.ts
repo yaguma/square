@@ -30,16 +30,16 @@ export class LayoutCalculationService {
    * @remarks
    * アルゴリズム:
    * 1. デバイスタイプ（モバイル/デスクトップ）を判定
-   * 2. 最大Canvas幅を決定（モバイル: 画面幅の90%、デスクトップ: 最大400px）
+   * 2. 最大Canvas幅を決定（モバイル: 画面幅の70%、デスクトップ: 最大400px）
    * 3. ブロックサイズ = 最大Canvas幅 / フィールド幅
-   * 4. デバイスごとの制約内に収める（モバイル: 15-30px、デスクトップ: 20-40px）
+   * 4. デバイスごとの制約内に収める（モバイル: 12-25px、デスクトップ: 20-40px）
    */
   calculateBlockSize(viewport: ViewportSize): BlockSize {
     const isMobile = viewport.isMobile();
 
-    // モバイルは画面幅の90%、デスクトップは最大400pxまたは画面幅の40%
+    // モバイルは画面幅の70%、デスクトップは最大400pxまたは画面幅の40%
     const maxCanvasWidth = isMobile
-      ? viewport.width * 0.9
+      ? viewport.width * 0.7
       : Math.min(400, viewport.width * 0.4);
 
     // フィールド幅で割ってブロックサイズを計算
