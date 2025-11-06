@@ -146,4 +146,100 @@ describe('CanvasRenderer', () => {
       expect(() => renderer.render(gameDto)).not.toThrow();
     });
   });
+
+  describe('updateBlockSize()', () => {
+    it('正常な値でブロックサイズを更新できる', () => {
+      renderer.updateBlockSize(25);
+
+      expect(canvas.width).toBe(25 * 8); // 200
+      expect(canvas.height).toBe(25 * 20); // 500
+    });
+
+    it('Canvasサイズが正しく再計算される', () => {
+      renderer.updateBlockSize(40);
+
+      expect(canvas.width).toBe(40 * 8); // 320
+      expect(canvas.height).toBe(40 * 20); // 800
+    });
+
+    it('負の値で警告が出て更新されない', () => {
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const originalWidth = canvas.width;
+      const originalHeight = canvas.height;
+
+      renderer.updateBlockSize(-1);
+
+      expect(consoleSpy).toHaveBeenCalledWith('Invalid block size, ignoring update');
+      expect(canvas.width).toBe(originalWidth);
+      expect(canvas.height).toBe(originalHeight);
+
+      consoleSpy.mockRestore();
+    });
+
+    it('0で警告が出て更新されない', () => {
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const originalWidth = canvas.width;
+      const originalHeight = canvas.height;
+
+      renderer.updateBlockSize(0);
+
+      expect(consoleSpy).toHaveBeenCalledWith('Invalid block size, ignoring update');
+      expect(canvas.width).toBe(originalWidth);
+      expect(canvas.height).toBe(originalHeight);
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('getBlockSize()', () => {
+    it('現在のブロックサイズを取得できる', () => {
+      const blockSize = renderer.getBlockSize();
+      expect(blockSize).toBe(30);
+    });
+
+    it('updateBlockSize()後の値を取得できる', () => {
+      renderer.updateBlockSize(35);
+
+      const blockSize = renderer.getBlockSize();
+      expect(blockSize).toBe(35);
+    });
+  });
+
+  describe('統合テスト', () => {
+    it('サイズ変更後も正常に描画できる', () => {
+      renderer.updateBlockSize(20);
+
+      const gameDto: GameDto = {
+        gameId: 'test-game',
+        state: 'playing',
+        score: 0,
+        field: Array(20).fill(null).map(() => Array(8).fill(null)),
+        fallingBlock: {
+          pattern: [
+            ['blue', 'blue'],
+            ['blue', 'blue']
+          ],
+          position: { x: 3, y: 0 },
+          rotation: 0
+        },
+        nextBlock: [
+          ['red', 'red'],
+          ['red', 'red']
+        ]
+      };
+
+      expect(() => renderer.render(gameDto)).not.toThrow();
+    });
+
+    it('複数回のサイズ変更に対応できる', () => {
+      renderer.updateBlockSize(25);
+      expect(canvas.width).toBe(25 * 8);
+
+      renderer.updateBlockSize(35);
+      expect(canvas.width).toBe(35 * 8);
+
+      renderer.updateBlockSize(20);
+      expect(canvas.width).toBe(20 * 8);
+    });
+  });
 });

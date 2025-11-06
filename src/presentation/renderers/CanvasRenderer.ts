@@ -18,7 +18,7 @@ export class CanvasRenderer {
    */
   constructor(
     private canvas: HTMLCanvasElement,
-    private blockSize: number = 30
+    blockSize: number = 30
   ) {
     const ctx = canvas.getContext('2d');
 
@@ -27,10 +27,43 @@ export class CanvasRenderer {
     }
 
     this.ctx = ctx;
+    this.blockSize = blockSize;
 
     // キャンバスサイズを設定（8x20マス）
-    this.canvas.width = blockSize * 8;
-    this.canvas.height = blockSize * 20;
+    // Phase 2以降は外部から設定することも可能
+    this.resizeCanvas();
+  }
+
+  /**
+   * ブロックサイズを更新してCanvasをリサイズ
+   *
+   * @param newBlockSize - 新しいブロックサイズ
+   */
+  updateBlockSize(newBlockSize: number): void {
+    if (newBlockSize <= 0) {
+      console.warn('Invalid block size, ignoring update');
+      return;
+    }
+
+    this.blockSize = newBlockSize;
+    this.resizeCanvas();
+  }
+
+  /**
+   * 現在のブロックサイズを取得
+   *
+   * @returns 現在のブロックサイズ
+   */
+  getBlockSize(): number {
+    return this.blockSize;
+  }
+
+  /**
+   * Canvasのサイズを現在のblockSizeで再計算
+   */
+  private resizeCanvas(): void {
+    this.canvas.width = this.blockSize * 8;
+    this.canvas.height = this.blockSize * 20;
   }
 
   /**

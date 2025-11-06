@@ -1,4 +1,5 @@
 import { GameApplicationService } from './GameApplicationService';
+import { InputCommand } from '@application/value-objects/InputCommand';
 
 /**
  * 入力受付のクールダウン期間（ミリ秒）
@@ -83,6 +84,79 @@ export class InputHandlerService {
       case 'ArrowDown':
         this.gameApplicationService.disableFastFall(gameId);
         break;
+    }
+  }
+
+  /**
+   * 統一的な入力処理メソッド
+   *
+   * @remarks
+   * タッチ入力とキーボード入力の両方で使用される
+   * Phase 3でCooldownManagerと統合予定
+   *
+   * @param command - 入力コマンド
+   * @param gameId - ゲームID
+   */
+  handleInput(command: InputCommand, gameId: string): void {
+    try {
+      // 簡易クールダウンチェック（MOVE_LEFT/RIGHTのみ）
+      const needsCooldown = command === InputCommand.MOVE_LEFT || command === InputCommand.MOVE_RIGHT;
+
+      if (needsCooldown) {
+        const key = command === InputCommand.MOVE_LEFT ? 'left' : 'right';
+        if (!this.canAcceptInput(key)) {
+          return; // クールダウン中は無視
+        }
+      }
+
+      // コマンドに応じてゲーム操作を実行
+      this.executeCommand(command, gameId);
+    } catch (error) {
+      console.error(`Failed to handle input command ${command}:`, error);
+      // エラーでもゲームを継続
+    }
+  }
+
+  /**
+   * InputCommandに応じたゲーム操作を実行
+   *
+   * @param command - 入力コマンド
+   * @param gameId - ゲームID
+   */
+  private executeCommand(command: InputCommand, gameId: string): void {
+    switch (command) {
+      case InputCommand.MOVE_LEFT:
+        this.gameApplicationService.moveBlockLeft(gameId);
+        break;
+      case InputCommand.MOVE_RIGHT:
+        this.gameApplicationService.moveBlockRight(gameId);
+        break;
+      case InputCommand.MOVE_DOWN:
+        this.gameApplicationService.accelerateFall(gameId);
+        break;
+      case InputCommand.ROTATE_CLOCKWISE:
+        this.gameApplicationService.rotateBlockClockwise(gameId);
+        break;
+      case InputCommand.ROTATE_COUNTER_CLOCKWISE:
+        this.gameApplicationService.rotateBlockCounterClockwise(gameId);
+        break;
+      case InputCommand.INSTANT_DROP:
+        this.gameApplicationService.dropInstantly(gameId);
+        break;
+      case InputCommand.PAUSE:
+        // 一時停止/再開のトグル
+        const gameState = this.gameApplicationService.getGameState(gameId);
+        if (gameState.state === 'playing') {
+          this.gameApplicationService.pauseGame(gameId);
+        } else if (gameState.state === 'paused') {
+          this.gameApplicationService.resumeGame(gameId);
+        }
+        break;
+      case InputCommand.RESET:
+        this.gameApplicationService.restartGame(gameId);
+        break;
+      default:
+        console.warn(`Unknown input command: ${command}`);
     }
   }
 
