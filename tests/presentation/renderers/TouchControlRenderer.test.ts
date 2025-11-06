@@ -195,20 +195,23 @@ describe('TouchControlRenderer', () => {
       renderer.render();
       renderer.show();
 
-      expect(container.style.display).toBe('flex');
+      const touchControls = container.querySelector('.touch-controls') as HTMLElement;
+      expect(touchControls.style.display).toBe('flex');
     });
 
     it('hide()でdisplay: noneになる', () => {
       renderer.render();
       renderer.hide();
 
-      expect(container.style.display).toBe('none');
+      const touchControls = container.querySelector('.touch-controls') as HTMLElement;
+      expect(touchControls.style.display).toBe('none');
     });
 
     it('初期状態はdisplay: noneではない（show/hide制御前）', () => {
       renderer.render();
       // renderした直後はdisplay設定されていない（CSSで制御）
-      expect(container.style.display).toBe('');
+      const touchControls = container.querySelector('.touch-controls') as HTMLElement;
+      expect(touchControls.style.display).toBe('');
     });
   });
 
