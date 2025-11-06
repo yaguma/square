@@ -86,13 +86,30 @@ describe('Game Integration - Removal Chain', () => {
 
     const field = game.field;
     const red = Block.create(Color.RED);
+    const blue = Block.create(Color.BLUE);
 
-    // 最上段にブロックを配置（ゲームオーバー条件）
-    field.placeBlock(Position.create(3, 0), red);
-    field.placeBlock(Position.create(4, 0), red);
+    // フィールドの下部をチェッカーボードパターンで埋める（2x2正方形を作らない）
+    // これにより、ブロックが削除されず、確実に最上段まで積み上がる
+    for (let y = 19; y >= 2; y--) {
+      for (let x = 0; x < 8; x++) {
+        if (field.isEmpty(Position.create(x, y))) {
+          // チェッカーボードパターン
+          const block = (x + y) % 2 === 0 ? red : blue;
+          field.placeBlock(Position.create(x, y), block);
+        }
+      }
+    }
 
-    // 落下ブロックを接地
-    game.dropInstantly();
+    // 複数回ブロックを落として、最終的にゲームオーバーにする
+    let attempts = 0;
+    const maxAttempts = 10;
+    while (game.state === GameState.Playing && attempts < maxAttempts) {
+      if (game.fallingBlock !== null) {
+        game.dropInstantly();
+      }
+      game.update();
+      attempts++;
+    }
 
     // ゲームオーバー状態になることを確認
     expect(game.state).toBe(GameState.GameOver);
