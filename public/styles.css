@@ -29,6 +29,15 @@ header h1 {
   font-size: 48px;
   color: #3498db;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  /* スクエア形状のスタイル */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 200px;
+  background-color: rgba(52, 152, 219, 0.2);
+  border: 3px solid #3498db;
+  border-radius: 12px;
 }
 
 .game-container {
@@ -340,8 +349,10 @@ kbd {
   }
 
   header h1 {
-    font-size: 28px;
+    font-size: 24px;
     margin-bottom: 10px;
+    width: 120px;
+    height: 120px;
   }
 
   header {
@@ -432,7 +443,9 @@ kbd {
 /* 非常に小さい画面（375px未満） */
 @media (max-width: 374px) {
   header h1 {
-    font-size: 28px;
+    font-size: 20px;
+    width: 100px;
+    height: 100px;
   }
 }
 
