@@ -88,6 +88,33 @@ export class FallingBlock {
   }
 
   /**
+   * 現在の回転状態を適用したブロックパターンを取得
+   *
+   * @returns 回転適用済みのブロック配列
+   *
+   * @remarks
+   * このゲッターは描画やDTO変換で使用され、
+   * 現在の回転角度（_rotation）を適用した実際のブロック配列を返します。
+   *
+   * 元のパターン（回転なし）が必要な場合は、patternゲッターを使用してください。
+   *
+   * @example
+   * ```typescript
+   * const fallingBlock = FallingBlock.create(pattern);
+   * fallingBlock.rotateClockwise();
+   *
+   * // 元のパターン（回転なし）
+   * const originalBlocks = fallingBlock.pattern.blocks;
+   *
+   * // 回転適用済みのパターン
+   * const rotatedBlocks = fallingBlock.rotatedBlocks;
+   * ```
+   */
+  get rotatedBlocks(): (Block | null)[][] {
+    return this._pattern.rotate(this._rotation);
+  }
+
+  /**
    * ブロックを左に1マス移動
    *
    * @example
