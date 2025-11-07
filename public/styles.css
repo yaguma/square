@@ -23,21 +23,20 @@ body {
 header {
   text-align: center;
   margin-bottom: 30px;
+  background-color: rgba(52, 152, 219, 0.1);
+  border-bottom: 3px solid #3498db;
+  padding: 20px 0;
+  margin-left: -20px;
+  margin-right: -20px;
+  margin-top: -20px;
 }
 
 header h1 {
   font-size: 48px;
   color: #3498db;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  /* スクエア形状のスタイル */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 200px;
-  height: 200px;
-  background-color: rgba(52, 152, 219, 0.2);
-  border: 3px solid #3498db;
-  border-radius: 12px;
+  margin: 0;
+  padding: 0;
 }
 
 .game-container {
@@ -348,15 +347,16 @@ kbd {
     padding: 8px;
   }
 
-  header h1 {
-    font-size: 24px;
-    margin-bottom: 10px;
-    width: 120px;
-    height: 120px;
-  }
-
   header {
     margin-bottom: 15px;
+    padding: 12px 0;
+    margin-left: -8px;
+    margin-right: -8px;
+    margin-top: -8px;
+  }
+
+  header h1 {
+    font-size: 24px;
   }
 
   .game-container {
@@ -444,8 +444,6 @@ kbd {
 @media (max-width: 374px) {
   header h1 {
     font-size: 20px;
-    width: 100px;
-    height: 100px;
   }
 }
 
